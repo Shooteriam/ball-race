@@ -5,13 +5,15 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-require("dotenv").config();
+
+// Load configuration
+const config = require('./config');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*",
+    origin: config.server.corsOrigin,
     methods: ["GET", "POST"],
   },
 });
@@ -30,23 +32,23 @@ const gameState = {
   }
 };
 
-// Game settings from environment variables
+// Game settings from configuration
 const GAME_SETTINGS = {
-  MAX_PLAYERS: parseInt(process.env.MAX_PLAYERS) || 20,
-  GAME_INTERVAL: parseInt(process.env.GAME_INTERVAL) || 120000, // 2 минуты по умолчанию
-  BALL_PRICE: parseInt(process.env.BALL_PRICE) || 50,
-  MAX_BALLS_PER_PLAYER: parseInt(process.env.MAX_BALLS_PER_PLAYER) || 50,
-  GAME_DURATION: 60 * 1000, // 60 seconds max
-  WORLD_WIDTH: 800,
-  WORLD_HEIGHT: 1200,
+  MAX_PLAYERS: config.game.settings.maxPlayers,
+  GAME_INTERVAL: config.getGameInterval(),
+  BALL_PRICE: config.game.settings.ballPrice,
+  MAX_BALLS_PER_PLAYER: config.game.settings.maxBallsPerPlayer,
+  GAME_DURATION: config.game.settings.gameDuration,
+  WORLD_WIDTH: config.game.settings.worldWidth,
+  WORLD_HEIGHT: config.game.settings.worldHeight,
 };
 
-// Game mechanics and physics constants
-const WORLD_WIDTH = 800;
-const WORLD_HEIGHT = 1200;
-const GRAVITY = 0.5; // Увеличена гравитация для более быстрого падения
-const BALL_RADIUS = 12;
-const FINISH_LINE_Y = WORLD_HEIGHT - 100;
+// Game mechanics and physics constants from configuration
+const WORLD_WIDTH = config.game.settings.worldWidth;
+const WORLD_HEIGHT = config.game.settings.worldHeight;
+const GRAVITY = config.game.physics.gravity;
+const BALL_RADIUS = config.game.physics.ballRadius;
+const FINISH_LINE_Y = WORLD_HEIGHT - config.game.obstacles.finishLineOffset;
 
 // Middleware
 app.use(cors());
@@ -77,8 +79,8 @@ app.post("/api/buy-balls", async (req, res) => {
 
   try {
     // Validate Telegram WebApp data
-    if (process.env.NODE_ENV === 'production' && initData) {
-      const isValidData = validateTelegramWebAppData(initData, process.env.TELEGRAM_BOT_TOKEN);
+    if (config.isProduction && config.productionSettings.requireTelegramValidation && initData) {
+      const isValidData = validateTelegramWebAppData(initData, config.telegram.botToken);
       if (!isValidData) {
         return res.status(400).json({ success: false, error: "Invalid Telegram data" });
       }
@@ -115,7 +117,7 @@ app.post("/api/buy-balls", async (req, res) => {
         userId,
         username: req.body.username || "Player",
         balls: [],
-        isAdmin: isAdmin(userId),
+        isAdmin: config.isAdmin(userId),
         totalBallsPurchased: 0,
         totalStarsSpent: 0
       };
@@ -184,7 +186,7 @@ io.on("connection", (socket) => {
       userId: userData.userId,
       username: userData.username,
       balls: [],
-      isAdmin: isAdmin(userData.userId),
+      isAdmin: config.isAdmin(userData.userId),
     };
 
     gameState.lobby.set(userData.userId, playerData);
@@ -223,7 +225,7 @@ io.on("connection", (socket) => {
         userId: socket.userId,
         username: socket.username || "Player",
         balls: [],
-        isAdmin: isAdmin(socket.userId),
+        isAdmin: config.isAdmin(socket.userId),
       };
       gameState.lobby.set(socket.userId, playerData);
     }
@@ -345,30 +347,12 @@ io.on("connection", (socket) => {
 
 // Helper functions
 function loadAdminIds() {
-  try {
-    const adminIdsEnv = process.env.ADMIN_IDS;
-    if (adminIdsEnv) {
-      return adminIdsEnv.split(',').map(id => id.trim());
-    }
-    
-    const adminConfigPath = path.join(__dirname, "../admin-config.txt");
-    if (fs.existsSync(adminConfigPath)) {
-      const content = fs.readFileSync(adminConfigPath, "utf8");
-      const ids = content
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith("#"));
-      return ids;
-    }
-  } catch (error) {
-    console.warn("Could not load admin config:", error.message);
-  }
-  return ["dev_admin", "123456789"]; // Fallback defaults
+  // This function is now replaced by config.js
+  return config.admins.ids;
 }
 
 function isAdmin(userId) {
-  const adminIds = loadAdminIds();
-  return adminIds.includes(userId.toString());
+  return config.isAdmin(userId);
 }
 
 // Telegram WebApp data validation
@@ -399,14 +383,15 @@ function validateTelegramWebAppData(initData, botToken) {
 // Verify Telegram Stars payment
 async function verifyTelegramStarsPayment(paymentData, userId) {
   try {
-    // TODO: Implement actual Telegram Stars verification
-    // For now, we'll simulate validation
-    if (process.env.NODE_ENV === 'development') {
+    const envSettings = config.getCurrentEnvironmentSettings();
+    
+    // In development mode, simulate payment
+    if (config.isDevelopment && envSettings.simulatePayments) {
       return { success: true, amount: paymentData.amount || GAME_SETTINGS.BALL_PRICE };
     }
     
     // Real implementation would check with Telegram API
-    // const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/verifyStarPayment`, {
+    // const response = await fetch(`https://api.telegram.org/bot${config.telegram.botToken}/verifyStarPayment`, {
     //   method: 'POST',
     //   headers: { 'Content-Type': 'application/json' },
     //   body: JSON.stringify({ payment_id: paymentData.payment_id, user_id: userId })
@@ -488,15 +473,7 @@ function broadcastLobbyUpdate() {
 }
 
 function getRandomBallColor() {
-  const colors = [
-    "#FF6B6B",
-    "#4ECDC4",
-    "#45B7D1",
-    "#96CEB4",
-    "#FFEAA7",
-    "#DDA0DD",
-    "#98D8C8",
-  ];
+  const colors = config.ui.colors.balls;
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
@@ -540,15 +517,16 @@ function startGame() {
 // Generate obstacles for the game
 function generateObstacles() {
   const obstacles = [];
+  const obstacleConfig = config.game.obstacles;
 
   // Add horizontal platforms with strategically placed gaps
-  for (let level = 1; level <= 6; level++) {
-    const y = 120 + level * 150; // Увеличиваем расстояние между уровнями
-    const numPlatforms = Math.random() > 0.3 ? 2 : 3; // Чаще 2 платформы
+  for (let level = 1; level <= obstacleConfig.platformLevels; level++) {
+    const y = 120 + level * obstacleConfig.levelSpacing;
+    const numPlatforms = Math.random() > 0.3 ? obstacleConfig.minPlatforms : obstacleConfig.maxPlatforms;
 
     // Create gaps that aren't too wide or too narrow
     const totalWidth = WORLD_WIDTH - 100; // Leave margins
-    const gapSize = 120 + Math.random() * 80; // Gap size 120-200px
+    const gapSize = obstacleConfig.platformGapSize[0] + Math.random() * (obstacleConfig.platformGapSize[1] - obstacleConfig.platformGapSize[0]);
     const platformWidth = (totalWidth - gapSize) / numPlatforms;
 
     for (let i = 0; i < numPlatforms; i++) {
@@ -561,13 +539,13 @@ function generateObstacles() {
         y: y,
         width: platformWidth,
         height: 20,
-        color: "#4f46e5",
+        color: config.ui.colors.platforms,
       });
     }
   }
 
   // Add fewer but more strategic moving obstacles
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < obstacleConfig.movingObstacleCount; i++) {
     const y = 250 + i * 300;
     obstacles.push({
       id: `moving_${i}`,
@@ -576,7 +554,7 @@ function generateObstacles() {
       y: y,
       width: 80,
       height: 20,
-      color: "#dc2626",
+      color: config.ui.colors.movingObstacles,
       velocity: {
         x: (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 0.7), // Slower movement
         y: 0,
@@ -586,7 +564,7 @@ function generateObstacles() {
   }
 
   // Add some static obstacles for variety
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < obstacleConfig.staticObstacleCount; i++) {
     const y = 200 + i * 200;
     const x = 200 + Math.random() * 400;
     obstacles.push({
@@ -596,7 +574,7 @@ function generateObstacles() {
       y: y,
       width: 60 + Math.random() * 40,
       height: 15,
-      color: "#7c3aed",
+      color: config.ui.colors.staticObstacles,
     });
   }
 
@@ -608,7 +586,7 @@ function generateObstacles() {
     y: FINISH_LINE_Y,
     width: WORLD_WIDTH,
     height: 15,
-    color: "#10b981",
+    color: config.ui.colors.finishLine,
   });
 
   return obstacles;
@@ -616,13 +594,15 @@ function generateObstacles() {
 
 // Physics simulation
 function simulatePhysics(balls, obstacles, deltaTime) {
+  const physics = config.game.physics;
+  
   balls.forEach((ball) => {
     // Apply gravity
-    ball.velocity.y += GRAVITY * deltaTime;
+    ball.velocity.y += physics.gravity * deltaTime;
 
     // Add slight air resistance
-    ball.velocity.x *= 0.999;
-    ball.velocity.y *= 0.9995;
+    ball.velocity.x *= physics.airResistanceX;
+    ball.velocity.y *= physics.airResistanceY;
 
     // Update position
     ball.position.x += ball.velocity.x * deltaTime;
@@ -631,10 +611,10 @@ function simulatePhysics(balls, obstacles, deltaTime) {
     // Check wall collisions with improved bouncing
     if (ball.position.x <= BALL_RADIUS) {
       ball.position.x = BALL_RADIUS;
-      ball.velocity.x = Math.abs(ball.velocity.x) * 0.6; // Reduced bounce
+      ball.velocity.x = Math.abs(ball.velocity.x) * physics.wallBounceReduction;
     } else if (ball.position.x >= WORLD_WIDTH - BALL_RADIUS) {
       ball.position.x = WORLD_WIDTH - BALL_RADIUS;
-      ball.velocity.x = -Math.abs(ball.velocity.x) * 0.6; // Reduced bounce
+      ball.velocity.x = -Math.abs(ball.velocity.x) * physics.wallBounceReduction;
     }
 
     // Check obstacle collisions
@@ -697,11 +677,11 @@ function checkBallObstacleCollision(ball, obstacle) {
     if (minOverlap === overlapTop) {
       // Ball hit from top
       ball.position.y = obstacleTop - BALL_RADIUS;
-      ball.velocity.y = -Math.abs(ball.velocity.y) * 0.6;
+      ball.velocity.y = -Math.abs(ball.velocity.y) * config.game.physics.obstacleBounceReduction;
     } else if (minOverlap === overlapBottom) {
       // Ball hit from bottom
       ball.position.y = obstacleBottom + BALL_RADIUS;
-      ball.velocity.y = Math.abs(ball.velocity.y) * 0.6;
+      ball.velocity.y = Math.abs(ball.velocity.y) * config.game.physics.obstacleBounceReduction;
     } else if (minOverlap === overlapLeft) {
       // Ball hit from left
       ball.position.x = obstacleLeft - BALL_RADIUS;
@@ -737,7 +717,7 @@ function updateMovingObstacles(obstacles, deltaTime) {
 // Physics simulation loop
 function startPhysicsSimulation(game) {
   let lastTime = Date.now();
-  const SIMULATION_INTERVAL = 16; // ~60 FPS
+  const SIMULATION_INTERVAL = 1000 / config.game.physics.simulationFPS;
 
   // Initialize all balls at starting positions
   const allBalls = [];
@@ -864,20 +844,15 @@ function endGame(game) {
 }
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = config.server.port;
 server.listen(PORT, () => {
-  const timerMinutes = Math.floor(GAME_SETTINGS.GAME_INTERVAL / (60 * 1000));
-  const timerSeconds = Math.floor(
-    (GAME_SETTINGS.GAME_INTERVAL % (60 * 1000)) / 1000
-  );
-
-  console.log(`🚀 Ball Race server running on port ${PORT}`);
+  console.log(`🚀 ${config.app.name} v${config.app.version}`);
   console.log(`📱 Client available at http://localhost:${PORT}`);
-  console.log(`⏰ Game timer interval: ${timerMinutes}m ${timerSeconds}s`);
-  console.log(`🎯 Max players: ${GAME_SETTINGS.MAX_PLAYERS}`);
-  console.log(`💰 Ball price: ${GAME_SETTINGS.BALL_PRICE} stars`);
-  console.log(`🔄 Starting game timer...`);
+  
+  // Print configuration
+  config.printConfig();
 
+  console.log(`🔄 Starting game timer...`);
   startGameTimer();
 });
 

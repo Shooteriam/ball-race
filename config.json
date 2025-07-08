@@ -1,0 +1,84 @@
+{
+  "app": {
+    "name": "Ball Race",
+    "version": "1.0.0",
+    "description": "Telegram Mini App - Multiplayer Ball Race Game"
+  },
+  "server": {
+    "port": 3000,
+    "environment": "development",
+    "corsOrigin": "*"
+  },
+  "telegram": {
+    "botToken": "7632314485:AAGl0k69--SArsXcHWHMnmQrrCM_xFq2hRI",
+    "webhookSecret": "YOUR_WEBHOOK_SECRET_HERE",
+    "validateWebAppData": true
+  },
+  "admins": {
+    "ids": ["863250350", "dev_admin"],
+    "permissions": {
+      "forceStartGame": true,
+      "resetGame": true,
+      "viewStatistics": true,
+      "manageUsers": true
+    }
+  },
+  "game": {
+    "settings": {
+      "gameInterval": 60000,
+      "ballPrice": 50,
+      "maxBallsPerPlayer": 50,
+      "maxPlayers": 20,
+      "gameDuration": 60000,
+      "worldWidth": 800,
+      "worldHeight": 1200
+    },
+    "physics": {
+      "gravity": 0.5,
+      "ballRadius": 12,
+      "airResistanceX": 0.999,
+      "airResistanceY": 0.9995,
+      "wallBounceReduction": 0.6,
+      "obstacleBounceReduction": 0.6,
+      "simulationFPS": 60
+    },
+    "obstacles": {
+      "platformLevels": 6,
+      "levelSpacing": 150,
+      "minPlatforms": 2,
+      "maxPlatforms": 3,
+      "platformGapSize": [120, 200],
+      "movingObstacleCount": 2,
+      "staticObstacleCount": 3,
+      "finishLineOffset": 100
+    }
+  },
+  "ui": {
+    "colors": {
+      "balls": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8"],
+      "platforms": "#4f46e5",
+      "movingObstacles": "#dc2626",
+      "staticObstacles": "#7c3aed",
+      "finishLine": "#10b981"
+    },
+    "canvas": {
+      "maxWidth": 500,
+      "aspectRatio": 1.5,
+      "maxViewportHeight": 0.6
+    }
+  },
+  "development": {
+    "enableDebugLogs": true,
+    "simulatePayments": true,
+    "autoAdminPrivileges": true,
+    "fastGameTimer": false,
+    "testGameInterval": 10000
+  },
+  "production": {
+    "enableDebugLogs": false,
+    "simulatePayments": false,
+    "autoAdminPrivileges": false,
+    "fastGameTimer": false,
+    "requireTelegramValidation": true
+  }
+}

@@ -10,8 +10,6 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
-admin-config.txt
-GITHUB_AUTH.md
 *.key
 *.pem
 
