@@ -11,6 +11,8 @@ class BallRaceApp {
     this.gameData = null;
     this.isAdmin = false;
     this.hasJoinedLobby = false;
+    this.gameRenderer = null;
+    this.gameTimer = null;
 
     this.init();
   }
@@ -217,6 +219,10 @@ class BallRaceApp {
         }
       });
 
+      this.socket.on("game-state", (data) => {
+        this.updateGameState(data);
+      });
+
       // Админ-события
       this.socket.on("admin:gameForceStarted", () => {
         if (this.isAdmin) {
@@ -290,6 +296,129 @@ class BallRaceApp {
         this.showScreen("main");
       });
     }
+  }
+
+  // Game methods
+  startGame(gameData) {
+    console.log("Game started:", gameData);
+
+    // Initialize game renderer
+    if (!this.gameRenderer) {
+      this.gameRenderer = new GameRenderer("gameCanvas");
+    }
+
+    this.gameRenderer.initGame(gameData);
+
+    // Show game screen
+    this.showScreen("game");
+
+    // Update UI
+    const gameStatus = document.getElementById("gameStatus");
+    if (gameStatus) {
+      gameStatus.textContent = "Игра началась!";
+    }
+
+    // Clear any existing timer
+    if (this.gameTimer) {
+      clearInterval(this.gameTimer);
+    }
+
+    // Start game timer
+    this.startGameTimeCounter(gameData.startTime);
+  }
+
+  endGame(gameData) {
+    console.log("Game ended:", gameData);
+
+    // Stop renderer
+    if (this.gameRenderer) {
+      this.gameRenderer.stopRenderLoop();
+    }
+
+    // Clear game timer
+    if (this.gameTimer) {
+      clearInterval(this.gameTimer);
+    }
+
+    // Show results
+    this.showGameResults(gameData);
+  }
+
+  updateGameState(gameData) {
+    if (this.gameRenderer) {
+      this.gameRenderer.updateGame(gameData);
+    }
+  }
+
+  startGameTimeCounter(startTime) {
+    const gameTimeElement = document.getElementById("gameTime");
+    if (!gameTimeElement) return;
+
+    this.gameTimer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      gameTimeElement.textContent = `${minutes}:${seconds
+        .toString()
+        .padStart(2, "0")}`;
+    }, 1000);
+  }
+
+  showGameResults(gameData) {
+    const resultsScreen = document.getElementById("resultsScreen");
+    const winnerCard = document.getElementById("winnerCard");
+    const winnerInfo = document.getElementById("winnerInfo");
+    const resultsList = document.getElementById("resultsList");
+
+    if (!resultsScreen || !winnerCard || !winnerInfo || !resultsList) {
+      console.error("Results screen elements not found");
+      return;
+    }
+
+    // Show winner
+    if (gameData.winner) {
+      winnerInfo.innerHTML = `
+        <h4>🏆 ${gameData.winner.playerName}</h4>
+        <p>Время: ${(
+          (gameData.winner.finishTime - gameData.startTime) /
+          1000
+        ).toFixed(2)}с</p>
+      `;
+    } else {
+      winnerInfo.innerHTML = `
+        <h4>⏰ Время вышло</h4>
+        <p>Никто не добрался до финиша</p>
+      `;
+    }
+
+    // Show all results
+    if (gameData.results && gameData.results.length > 0) {
+      resultsList.innerHTML = gameData.results
+        .map(
+          (result, index) => `
+        <div class="result-item">
+          <span class="position">${index + 1}</span>
+          <span class="player-name">${result.playerName}</span>
+          <span class="result-status">
+            ${
+              result.finished
+                ? `✅ ${(
+                    (result.finishTime - gameData.startTime) /
+                    1000
+                  ).toFixed(2)}с`
+                : "❌ Не финишировал"
+            }
+          </span>
+        </div>
+      `
+        )
+        .join("");
+    } else {
+      resultsList.innerHTML = "<p>Нет данных о результатах</p>";
+    }
+
+    // Show results screen
+    this.showScreen("results");
   }
 
   showScreen(screenName) {

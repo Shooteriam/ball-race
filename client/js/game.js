@@ -7,6 +7,7 @@ class GameRenderer {
     this.obstacles = [];
     this.balls = [];
     this.animationId = null;
+    this.winner = null;
 
     // Camera settings
     this.camera = {
@@ -15,24 +16,34 @@ class GameRenderer {
       scale: 1,
     };
 
+    // Colors
+    this.colors = {
+      background: "#0f172a",
+      platform: "#3b82f6",
+      moving: "#dc2626",
+      finish: "#10b981",
+      ball: "#fbbf24",
+    };
+
     this.resizeCanvas();
     window.addEventListener("resize", () => this.resizeCanvas());
   }
 
   resizeCanvas() {
     const container = this.canvas.parentElement;
-    const maxWidth = Math.min(container.clientWidth - 40, 400);
+    const maxWidth = Math.min(container.clientWidth - 40, 500);
     this.canvas.width = maxWidth;
     this.canvas.height = Math.floor(maxWidth * 1.5); // 3:2 aspect ratio
 
     // Update camera scale based on canvas size
-    this.camera.scale = this.canvas.width / 800; // 800 is server world width
+    this.camera.scale = this.canvas.width / 800; // 800 is world width
   }
 
   initGame(gameData) {
     this.gameData = gameData;
     this.obstacles = gameData.obstacles || [];
     this.balls = [];
+    this.winner = null;
 
     // Start rendering loop
     this.startRenderLoop();
@@ -40,7 +51,8 @@ class GameRenderer {
 
   updateGame(gameData) {
     this.balls = gameData.balls || [];
-    // Game data is updated, rendering loop will pick it up
+    this.obstacles = gameData.obstacles || [];
+    this.winner = gameData.winner || null;
   }
 
   startRenderLoop() {
@@ -49,7 +61,6 @@ class GameRenderer {
       this.drawBackground();
       this.drawObstacles();
       this.drawBalls();
-      this.drawFinishLine();
       this.drawUI();
 
       this.animationId = requestAnimationFrame(render);
@@ -58,46 +69,36 @@ class GameRenderer {
     render();
   }
 
-  stopRenderLoop() {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
-  }
-
   clearCanvas() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = this.colors.background;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   drawBackground() {
-    // Sky to ground gradient
+    // Draw gradient background
     const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-    gradient.addColorStop(0, "#87CEEB"); // Sky blue
-    gradient.addColorStop(0.3, "#98FB98"); // Light green
-    gradient.addColorStop(0.7, "#90EE90"); // Medium green
-    gradient.addColorStop(1, "#228B22"); // Forest green
-
+    gradient.addColorStop(0, "#1e293b");
+    gradient.addColorStop(1, "#0f172a");
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Add some clouds
-    this.drawClouds();
-  }
+    // Draw grid pattern
+    this.ctx.strokeStyle = "rgba(59, 130, 246, 0.1)";
+    this.ctx.lineWidth = 1;
 
-  drawClouds() {
-    this.ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-
-    // Simple cloud shapes
-    for (let i = 0; i < 3; i++) {
-      const x = (i * 150 + 50) * this.camera.scale;
-      const y = (30 + i * 20) * this.camera.scale;
-      const size = 20 * this.camera.scale;
-
+    const gridSize = 50 * this.camera.scale;
+    for (let x = 0; x < this.canvas.width; x += gridSize) {
       this.ctx.beginPath();
-      this.ctx.arc(x, y, size, 0, Math.PI * 2);
-      this.ctx.arc(x + size, y, size * 0.8, 0, Math.PI * 2);
-      this.ctx.arc(x + size * 1.5, y + size * 0.3, size * 0.6, 0, Math.PI * 2);
-      this.ctx.fill();
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, this.canvas.height);
+      this.ctx.stroke();
+    }
+
+    for (let y = 0; y < this.canvas.height; y += gridSize) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(this.canvas.width, y);
+      this.ctx.stroke();
     }
   }
 
@@ -108,146 +109,176 @@ class GameRenderer {
       const width = obstacle.width * this.camera.scale;
       const height = obstacle.height * this.camera.scale;
 
-      // Platform shadow
-      this.ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-      this.ctx.fillRect(x + 2, y + 2, width, height);
+      if (obstacle.type === "finish") {
+        // Draw finish line with pattern
+        this.ctx.fillStyle = this.colors.finish;
+        this.ctx.fillRect(x, y, width, height);
 
-      // Platform
-      this.ctx.fillStyle = "#8B4513"; // Brown
-      this.ctx.fillRect(x, y, width, height);
+        // Add checkered pattern
+        this.ctx.fillStyle = "#ffffff";
+        for (let i = 0; i < width; i += 20) {
+          if (Math.floor(i / 20) % 2 === 0) {
+            this.ctx.fillRect(x + i, y, 20, height);
+          }
+        }
 
-      // Platform highlight
-      this.ctx.fillStyle = "#A0522D";
-      this.ctx.fillRect(x, y, width, 4);
+        // Finish line text
+        this.ctx.fillStyle = "#ffffff";
+        this.ctx.font = `bold ${Math.max(12, 16 * this.camera.scale)}px Inter`;
+        this.ctx.textAlign = "center";
+        this.ctx.fillText("🏁 FINISH", this.canvas.width / 2, y - 10);
+      } else if (obstacle.type === "moving") {
+        // Draw moving obstacle with glow
+        this.ctx.shadowColor = this.colors.moving;
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = this.colors.moving;
+        this.ctx.fillRect(x, y, width, height);
+        this.ctx.shadowBlur = 0;
+      } else {
+        // Draw regular platform
+        this.ctx.fillStyle = this.colors.platform;
+        this.ctx.fillRect(x, y, width, height);
 
-      // Platform border
-      this.ctx.strokeStyle = "#654321";
-      this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(x, y, width, height);
+        // Add highlight
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+        this.ctx.fillRect(x, y, width, 3);
+      }
     });
   }
 
   drawBalls() {
     // Sort balls by Y position for proper layering
-    const sortedBalls = [...this.balls].sort((a, b) => a.y - b.y);
+    const sortedBalls = [...this.balls].sort(
+      (a, b) => (a.position?.y || a.y || 0) - (b.position?.y || b.y || 0)
+    );
 
     sortedBalls.forEach((ball) => {
-      const x = ball.x * this.camera.scale;
-      const y = ball.y * this.camera.scale;
-      const radius = 8 * this.camera.scale;
+      const x = (ball.position?.x || ball.x || 0) * this.camera.scale;
+      const y = (ball.position?.y || ball.y || 0) * this.camera.scale;
+      const radius = 12 * this.camera.scale;
 
-      // Ball shadow
+      // Draw ball shadow
       this.ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
       this.ctx.beginPath();
-      this.ctx.ellipse(
-        x + 2,
-        y + radius + 2,
-        radius * 0.8,
-        radius * 0.4,
-        0,
+      this.ctx.ellipse(x + 2, y + 2, radius, radius * 0.5, 0, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Draw ball
+      this.ctx.fillStyle = ball.color || this.colors.ball;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Add highlight
+      this.ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      this.ctx.beginPath();
+      this.ctx.arc(
+        x - radius * 0.3,
+        y - radius * 0.3,
+        radius * 0.3,
         0,
         Math.PI * 2
       );
       this.ctx.fill();
 
-      // Ball
-      this.ctx.fillStyle = ball.color;
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-      this.ctx.fill();
-
-      // Ball highlight
-      const gradient = this.ctx.createRadialGradient(
-        x - radius * 0.3,
-        y - radius * 0.3,
-        0,
-        x,
-        y,
-        radius
-      );
-      gradient.addColorStop(0, "rgba(255, 255, 255, 0.6)");
-      gradient.addColorStop(0.4, "rgba(255, 255, 255, 0.2)");
-      gradient.addColorStop(1, "rgba(0, 0, 0, 0.2)");
-
-      this.ctx.fillStyle = gradient;
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-      this.ctx.fill();
-
-      // Ball border
-      this.ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-      this.ctx.lineWidth = 1;
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-      this.ctx.stroke();
-
       // Player name (small text)
-      if (ball.username) {
-        this.ctx.fillStyle = "#000";
-        this.ctx.font = `${Math.max(8, 10 * this.camera.scale)}px Arial`;
+      if (ball.playerName || ball.username) {
+        this.ctx.fillStyle = "#ffffff";
+        this.ctx.font = `${Math.max(10, 12 * this.camera.scale)}px Inter`;
         this.ctx.textAlign = "center";
-        this.ctx.fillText(ball.username, x, y - radius - 5);
+        this.ctx.strokeStyle = "#000000";
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeText(
+          ball.playerName || ball.username,
+          x,
+          y - radius - 8
+        );
+        this.ctx.fillText(ball.playerName || ball.username, x, y - radius - 8);
+      }
+
+      // Draw winner indicator
+      if (this.winner && ball.id === this.winner.ballId) {
+        this.ctx.strokeStyle = "#fbbf24";
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, radius + 6, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        // Winner crown
+        this.ctx.fillStyle = "#fbbf24";
+        this.ctx.font = `${Math.max(16, 20 * this.camera.scale)}px Inter`;
+        this.ctx.textAlign = "center";
+        this.ctx.fillText("👑", x, y - radius - 25);
       }
     });
-  }
-
-  drawFinishLine() {
-    const finishY = (1200 - 50) * this.camera.scale; // Near bottom
-    const width = this.canvas.width;
-    const height = 30 * this.camera.scale;
-
-    // Checkered pattern
-    const squareSize = 15 * this.camera.scale;
-
-    for (let x = 0; x < width; x += squareSize) {
-      for (let y = 0; y < height; y += squareSize) {
-        const isWhite =
-          (Math.floor(x / squareSize) + Math.floor(y / squareSize)) % 2 === 0;
-        this.ctx.fillStyle = isWhite ? "#FFF" : "#000";
-        this.ctx.fillRect(x, finishY + y, squareSize, squareSize);
-      }
-    }
-
-    // Finish line text
-    this.ctx.fillStyle = "#FF0000";
-    this.ctx.font = `bold ${Math.max(12, 16 * this.camera.scale)}px Arial`;
-    this.ctx.textAlign = "center";
-    this.ctx.fillText("🏁 ФИНИШ", this.canvas.width / 2, finishY - 10);
   }
 
   drawUI() {
-    // Ball count by player
-    const playerStats = this.getBallCountByPlayer();
+    // Draw winner text
+    if (this.winner) {
+      this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      this.ctx.fillRect(0, 20, this.canvas.width, 80);
 
-    this.ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    this.ctx.fillRect(10, 10, 200, playerStats.length * 20 + 10);
-
-    this.ctx.fillStyle = "#FFF";
-    this.ctx.font = "12px Arial";
-    this.ctx.textAlign = "left";
-
-    playerStats.forEach((player, index) => {
+      this.ctx.fillStyle = "#fbbf24";
+      this.ctx.font = "bold 28px Inter";
+      this.ctx.textAlign = "center";
       this.ctx.fillText(
-        `${player.username}: ${player.count} 🎱`,
-        15,
-        30 + index * 20
+        `🏆 Winner: ${this.winner.playerName}`,
+        this.canvas.width / 2,
+        60
       );
-    });
+
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.font = "16px Inter";
+      this.ctx.fillText("Game finished!", this.canvas.width / 2, 85);
+    }
+
+    // Draw player stats
+    const playerStats = this.getBallCountByPlayer();
+    if (playerStats.length > 0) {
+      this.ctx.fillStyle = "rgba(59, 130, 246, 0.9)";
+      this.ctx.fillRect(
+        10,
+        this.canvas.height - (playerStats.length * 25 + 20),
+        180,
+        playerStats.length * 25 + 15
+      );
+
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.font = "14px Inter";
+      this.ctx.textAlign = "left";
+
+      playerStats.forEach((player, index) => {
+        this.ctx.fillText(
+          `${player.username}: ${player.count} 🎱`,
+          15,
+          this.canvas.height - (playerStats.length - index) * 25
+        );
+      });
+    }
   }
 
   getBallCountByPlayer() {
     const playerCounts = {};
 
     this.balls.forEach((ball) => {
-      if (!playerCounts[ball.username]) {
-        playerCounts[ball.username] = 0;
+      const name = ball.playerName || ball.username;
+      if (!playerCounts[name]) {
+        playerCounts[name] = 0;
       }
-      playerCounts[ball.username]++;
+      playerCounts[name]++;
     });
 
     return Object.entries(playerCounts)
       .map(([username, count]) => ({ username, count }))
       .sort((a, b) => b.count - a.count);
+  }
+
+  stopRenderLoop() {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = null;
+    }
   }
 
   destroy() {

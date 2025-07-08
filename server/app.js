@@ -35,6 +35,13 @@ const GAME_SETTINGS = {
   WORLD_HEIGHT: 1200,
 };
 
+// Game mechanics and physics constants
+const WORLD_WIDTH = 800;
+const WORLD_HEIGHT = 1200;
+const GRAVITY = 0.3;
+const BALL_RADIUS = 12;
+const FINISH_LINE_Y = WORLD_HEIGHT - 100;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -340,140 +347,302 @@ function startGame() {
   startGameTimer();
 }
 
+// Generate obstacles for the game
 function generateObstacles() {
   const obstacles = [];
-  const obstacleCount = 15;
 
-  for (let i = 0; i < obstacleCount; i++) {
+  // Add horizontal platforms with gaps
+  for (let level = 1; level <= 8; level++) {
+    const y = 150 + level * 120;
+    const numPlatforms = 2 + Math.floor(Math.random() * 2);
+
+    for (let i = 0; i < numPlatforms; i++) {
+      const width = 80 + Math.random() * 100;
+      const spacing = WORLD_WIDTH / (numPlatforms + 1);
+      const x = i * spacing + (spacing - width) / 2 + Math.random() * 60 - 30;
+
+      obstacles.push({
+        id: `platform_${level}_${i}`,
+        type: "platform",
+        x: Math.max(0, Math.min(WORLD_WIDTH - width, x)),
+        y: y,
+        width: width,
+        height: 20,
+        color: "#4f46e5",
+      });
+    }
+  }
+
+  // Add some moving obstacles
+  for (let i = 0; i < 3; i++) {
     obstacles.push({
-      id: i,
-      x: Math.random() * (GAME_SETTINGS.WORLD_WIDTH - 100),
-      y: 200 + i * 60,
-      width: 80 + Math.random() * 120,
+      id: `moving_${i}`,
+      type: "moving",
+      x: 100 + i * 200,
+      y: 300 + i * 200,
+      width: 60,
       height: 20,
-      type: "platform",
+      color: "#dc2626",
+      velocity: {
+        x: (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random()),
+        y: 0,
+      },
+      range: { min: 50, max: WORLD_WIDTH - 110 },
     });
   }
+
+  // Add finish line
+  obstacles.push({
+    id: "finish_line",
+    type: "finish",
+    x: 0,
+    y: FINISH_LINE_Y,
+    width: WORLD_WIDTH,
+    height: 10,
+    color: "#10b981",
+  });
 
   return obstacles;
 }
 
-function startPhysicsSimulation(game) {
-  const gameLoop = setInterval(() => {
-    if (!gameState.currentGame || gameState.currentGame.status !== "running") {
-      clearInterval(gameLoop);
-      return;
+// Physics simulation
+function simulatePhysics(balls, obstacles, deltaTime) {
+  balls.forEach((ball) => {
+    // Apply gravity
+    ball.velocity.y += GRAVITY * deltaTime;
+
+    // Update position
+    ball.position.x += ball.velocity.x * deltaTime;
+    ball.position.y += ball.velocity.y * deltaTime;
+
+    // Check wall collisions
+    if (ball.position.x <= BALL_RADIUS) {
+      ball.position.x = BALL_RADIUS;
+      ball.velocity.x = Math.abs(ball.velocity.x) * 0.7;
+    } else if (ball.position.x >= WORLD_WIDTH - BALL_RADIUS) {
+      ball.position.x = WORLD_WIDTH - BALL_RADIUS;
+      ball.velocity.x = -Math.abs(ball.velocity.x) * 0.7;
     }
 
-    // Update ball physics
-    updateBallPhysics(game);
-
-    // Check for winner
-    const winner = checkForWinner(game);
-    if (winner) {
-      endGame(game, winner);
-      clearInterval(gameLoop);
-    }
-
-    // Send game state to clients
-    io.emit("game-update", {
-      balls: getAllBallPositions(game),
-      gameTime: Date.now() - game.startTime,
-    });
-  }, 1000 / 60); // 60 FPS
-}
-
-function updateBallPhysics(game) {
-  const gravity = 0.5;
-  const bounceReduction = 0.7;
-
-  game.players.forEach((player) => {
-    player.balls.forEach((ball) => {
-      // Apply gravity
-      ball.velocity.y += gravity;
-
-      // Update position
-      ball.position.x += ball.velocity.x;
-      ball.position.y += ball.velocity.y;
-
-      // Collision with walls
-      if (
-        ball.position.x <= 10 ||
-        ball.position.x >= GAME_SETTINGS.WORLD_WIDTH - 10
-      ) {
-        ball.velocity.x *= -bounceReduction;
-        ball.position.x = Math.max(
-          10,
-          Math.min(GAME_SETTINGS.WORLD_WIDTH - 10, ball.position.x)
-        );
-      }
-
-      // Collision with obstacles
-      game.obstacles.forEach((obstacle) => {
-        if (checkBallObstacleCollision(ball, obstacle)) {
-          ball.velocity.y *= -bounceReduction;
-          ball.velocity.x += (Math.random() - 0.5) * 2; // Add some randomness
+    // Check obstacle collisions
+    obstacles.forEach((obstacle) => {
+      if (obstacle.type === "finish") {
+        // Check if ball reached finish line
+        if (ball.position.y + BALL_RADIUS >= obstacle.y && !ball.finished) {
+          ball.finished = true;
+          ball.finishTime = Date.now();
         }
-      });
-    });
-  });
-}
-
-function checkBallObstacleCollision(ball, obstacle) {
-  return (
-    ball.position.x >= obstacle.x &&
-    ball.position.x <= obstacle.x + obstacle.width &&
-    ball.position.y >= obstacle.y &&
-    ball.position.y <= obstacle.y + obstacle.height
-  );
-}
-
-function getAllBallPositions(game) {
-  const balls = [];
-  game.players.forEach((player) => {
-    player.balls.forEach((ball) => {
-      balls.push({
-        id: ball.id,
-        username: player.username,
-        x: ball.position.x,
-        y: ball.position.y,
-        color: ball.color,
-      });
-    });
-  });
-  return balls;
-}
-
-function checkForWinner(game) {
-  for (const player of game.players) {
-    for (const ball of player.balls) {
-      if (ball.position.y >= GAME_SETTINGS.WORLD_HEIGHT - 50) {
-        return { player, ball };
+      } else {
+        checkBallObstacleCollision(ball, obstacle);
       }
+    });
+
+    // Prevent balls from going too far down
+    if (ball.position.y > WORLD_HEIGHT + 100) {
+      ball.position.y = WORLD_HEIGHT + 100;
+      ball.velocity.y = 0;
+    }
+  });
+}
+
+// Check collision between ball and obstacle
+function checkBallObstacleCollision(ball, obstacle) {
+  const ballLeft = ball.position.x - BALL_RADIUS;
+  const ballRight = ball.position.x + BALL_RADIUS;
+  const ballTop = ball.position.y - BALL_RADIUS;
+  const ballBottom = ball.position.y + BALL_RADIUS;
+
+  const obstacleLeft = obstacle.x;
+  const obstacleRight = obstacle.x + obstacle.width;
+  const obstacleTop = obstacle.y;
+  const obstacleBottom = obstacle.y + obstacle.height;
+
+  if (
+    ballRight > obstacleLeft &&
+    ballLeft < obstacleRight &&
+    ballBottom > obstacleTop &&
+    ballTop < obstacleBottom
+  ) {
+    // Determine collision side
+    const overlapLeft = ballRight - obstacleLeft;
+    const overlapRight = obstacleRight - ballLeft;
+    const overlapTop = ballBottom - obstacleTop;
+    const overlapBottom = obstacleBottom - ballTop;
+
+    const minOverlap = Math.min(
+      overlapLeft,
+      overlapRight,
+      overlapTop,
+      overlapBottom
+    );
+
+    if (minOverlap === overlapTop) {
+      // Ball hit from top
+      ball.position.y = obstacleTop - BALL_RADIUS;
+      ball.velocity.y = -Math.abs(ball.velocity.y) * 0.6;
+    } else if (minOverlap === overlapBottom) {
+      // Ball hit from bottom
+      ball.position.y = obstacleBottom + BALL_RADIUS;
+      ball.velocity.y = Math.abs(ball.velocity.y) * 0.6;
+    } else if (minOverlap === overlapLeft) {
+      // Ball hit from left
+      ball.position.x = obstacleLeft - BALL_RADIUS;
+      ball.velocity.x = -Math.abs(ball.velocity.x) * 0.7;
+    } else {
+      // Ball hit from right
+      ball.position.x = obstacleRight + BALL_RADIUS;
+      ball.velocity.x = Math.abs(ball.velocity.x) * 0.7;
     }
   }
-  return null;
 }
 
-function endGame(game, winner) {
-  game.status = "finished";
-  game.winner = winner;
-  gameState.games.push(game);
-  gameState.currentGame = null;
+// Update moving obstacles
+function updateMovingObstacles(obstacles, deltaTime) {
+  obstacles.forEach((obstacle) => {
+    if (obstacle.type === "moving") {
+      obstacle.x += obstacle.velocity.x * deltaTime;
 
-  console.log(`Game ended! Winner: ${winner.player.username}`);
+      if (
+        obstacle.x <= obstacle.range.min ||
+        obstacle.x >= obstacle.range.max
+      ) {
+        obstacle.velocity.x *= -1;
+        obstacle.x = Math.max(
+          obstacle.range.min,
+          Math.min(obstacle.range.max, obstacle.x)
+        );
+      }
+    }
+  });
+}
+
+// Physics simulation loop
+function startPhysicsSimulation(game) {
+  let lastTime = Date.now();
+  const SIMULATION_INTERVAL = 16; // ~60 FPS
+
+  // Initialize all balls at starting positions
+  const allBalls = [];
+  game.players.forEach((player) => {
+    player.balls.forEach((ball, index) => {
+      allBalls.push({
+        ...ball,
+        playerId: player.userId,
+        playerName: player.username,
+        position: {
+          x: 100 + Math.random() * 600, // Random starting X position
+          y: 50 + index * 5, // Slight Y offset for multiple balls
+        },
+        velocity: {
+          x: (Math.random() - 0.5) * 2, // Small random horizontal velocity
+          y: 0,
+        },
+        finished: false,
+        finishTime: null,
+      });
+    });
+  });
+
+  game.balls = allBalls;
+
+  const simulationInterval = setInterval(() => {
+    const currentTime = Date.now();
+    const deltaTime = Math.min((currentTime - lastTime) / 16.67, 2); // Cap deltaTime to prevent large jumps
+    lastTime = currentTime;
+
+    // Update moving obstacles
+    updateMovingObstacles(game.obstacles, deltaTime);
+
+    // Simulate physics for all balls
+    simulatePhysics(game.balls, game.obstacles, deltaTime);
+
+    // Check for winners
+    const finishedBalls = game.balls.filter((ball) => ball.finished);
+
+    if (finishedBalls.length > 0 && !game.winner) {
+      // Sort by finish time to find the winner
+      finishedBalls.sort((a, b) => a.finishTime - b.finishTime);
+      game.winner = {
+        ballId: finishedBalls[0].id,
+        playerId: finishedBalls[0].playerId,
+        playerName: finishedBalls[0].playerName,
+        finishTime: finishedBalls[0].finishTime,
+      };
+
+      console.log(`Game ${game.id} winner: ${game.winner.playerName}`);
+
+      // End game after 3 seconds to show results
+      setTimeout(() => {
+        endGame(game);
+        clearInterval(simulationInterval);
+      }, 3000);
+    }
+
+    // Send game state to all clients
+    io.emit("game-state", {
+      gameId: game.id,
+      balls: game.balls,
+      obstacles: game.obstacles,
+      winner: game.winner,
+      timeElapsed: currentTime - game.startTime,
+    });
+
+    // End game after 60 seconds if no winner
+    if (currentTime - game.startTime > 60000 && !game.winner) {
+      console.log(`Game ${game.id} timed out`);
+      endGame(game);
+      clearInterval(simulationInterval);
+    }
+  }, SIMULATION_INTERVAL);
+
+  game.simulationInterval = simulationInterval;
+}
+
+// End game and show results
+function endGame(game) {
+  game.status = "finished";
+  game.endTime = Date.now();
+
+  // Calculate final results
+  const results = game.balls
+    .map((ball) => ({
+      ballId: ball.id,
+      playerId: ball.playerId,
+      playerName: ball.playerName,
+      finished: ball.finished,
+      finishTime: ball.finishTime,
+      finalPosition: ball.position,
+    }))
+    .sort((a, b) => {
+      if (a.finished && !b.finished) return -1;
+      if (!a.finished && b.finished) return 1;
+      if (a.finished && b.finished) return a.finishTime - b.finishTime;
+      return b.finalPosition.y - a.finalPosition.y; // Further down = better if not finished
+    });
+
+  // Store game in history
+  gameState.games.push({
+    id: game.id,
+    startTime: game.startTime,
+    endTime: game.endTime,
+    winner: game.winner,
+    results: results,
+    playerCount: game.players.length,
+  });
+
+  // Limit history to last 10 games
+  if (gameState.games.length > 10) {
+    gameState.games = gameState.games.slice(-10);
+  }
 
   // Notify clients
   io.emit("game-ended", {
-    winner: {
-      username: winner.player.username,
-      ballId: winner.ball.id,
-    },
     gameId: game.id,
+    winner: game.winner,
+    results: results,
   });
 
-  // TODO: Send Telegram gift to winner
-  // await sendTelegramGift(winner.player.userId);
+  gameState.currentGame = null;
 }
 
 // Start server
