@@ -1,0 +1,27 @@
+{
+  "name": "ball-race-server",
+  "version": "1.0.0",
+  "description": "Server for Ball Race Telegram Mini App",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "telegram",
+    "mini-app",
+    "game",
+    "socket.io"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Race - Telegram Mini App</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Main Game Screen - современный единый дизайн -->
+        <div id="mainScreen" class="screen active">
+            <div class="header">
+                <h1><span class="emoji">🎮</span> <span class="text-gradient">Ball Race</span></h1>
+                <p>Многопользовательская гонка шариков</p>
+            </div>
+
+            <!-- Таймер до следующей игры -->
+            <div class="timer-card">
+                <h3>⏰ До следующей игры</h3>
+                <div id="gameTimer" class="timer">00:00</div>
+            </div>
+
+            <!-- Покупка шариков -->
+            <div class="purchase-section">
+                <div class="purchase-card">
+                    <h3>🎱 Покупка шариков</h3>
+                    <div class="ball-selector">
+                        <label for="ballCount">Количество шариков:</label>
+                        <input type="range" id="ballCount" min="1" max="50" value="10">
+                        <span id="ballCountDisplay">10</span>
+                    </div>
+                    <p class="cost">💎 Стоимость: 50 ⭐ Telegram Stars</p>
+                    <button id="buyBallsBtn" class="btn btn-primary">
+                        ✨ Купить шарики
+                    </button>
+                    <div class="player-balls">
+                        <span>Ваши шарики: <strong id="playerBallCount">0</strong> 🎱</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Лобби игроков -->
+            <div class="lobby-section">
+                <div class="lobby-card">
+                    <h3>🏁 Лобби игроков (<span id="playerCount">0</span>/20)</h3>
+                    <div id="playerList" class="player-list">
+                        <div class="empty-lobby">
+                            <p>👥 Ожидание игроков...</p>
+                            <p>Купите шарики, чтобы присоединиться к игре!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Правила игры -->
+            <div class="rules-section">
+                <div class="info-card">
+                    <h3>📋 Правила игры</h3>
+                    <p>⏱️ Игры каждые 5 минут</p>
+                    <p>🎯 Максимум 50 шариков на игрока</p>
+                    <p>🏆 Побеждает самый быстрый шарик</p>
+                    <p>💰 Стоимость участия: 50 ⭐ Telegram Stars</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="gameScreen" class="screen">
+            <div class="game-header">
+                <div class="game-status">
+                    <span id="gameStatus">Игра идет...</span>
+                    <span id="gameTime">00:00</span>
+                </div>
+                <div class="player-stats">
+                    <span id="totalBalls">Всего шариков: 0</span>
+                </div>
+            </div>
+
+            <div class="game-canvas-container">
+                <canvas id="gameCanvas" width="400" height="600"></canvas>
+            </div>
+
+            <div class="game-controls">
+                <button id="spectateBtn" class="btn secondary">Режим наблюдения</button>
+                <button id="backToLobbyBtn" class="btn danger">В лобби</button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="resultsScreen" class="screen">
+            <div class="results-header">
+                <h2>🏆 Результаты игры</h2>
+            </div>
+
+            <div class="results-content">
+                <div id="winnerCard" class="winner-card">
+                    <h3>🥇 Победитель</h3>
+                    <div id="winnerInfo"></div>
+                </div>
+
+                <div class="results-list">
+                    <h3>📊 Все результаты</h3>
+                    <div id="resultsList"></div>
+                </div>
+
+                <div class="results-actions">
+                    <button id="newGameBtn" class="btn btn-primary">
+                        🔄 Новая игра
+                    </button>
+                    <button id="backToMainBtn" class="btn btn-secondary">
+                        🏠 На главную
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications -->
+        <div id="notifications" class="notifications"></div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>
