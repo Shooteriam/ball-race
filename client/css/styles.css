@@ -384,10 +384,17 @@ body::before {
   background: var(--gradient-primary);
   color: var(--white);
   box-shadow: var(--shadow-lg), 0 0 0 1px rgba(99, 102, 241, 0.1);
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  min-height: 4rem;
+  width: 100%;
+  margin-top: var(--space-4);
 }
 
 .btn-primary:hover {
   box-shadow: var(--shadow-neon), 0 0 0 1px rgba(99, 102, 241, 0.2);
+  transform: translateY(-2px);
 }
 
 .btn-secondary {
@@ -423,51 +430,76 @@ body::before {
 .ball-selector {
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
   backdrop-filter: blur(10px);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.ball-selector:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
 }
 
 .ball-selector label {
   display: block;
-  margin-bottom: var(--space-3);
-  font-weight: 600;
-  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-4);
+  font-weight: 700;
+  font-size: var(--font-size-xl);
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 #ballCount {
-  width: 100%;
-  height: 0.5rem;
+  flex: 1;
+  height: 0.75rem;
   border-radius: var(--radius-full);
   background: rgba(255, 255, 255, 0.2);
   outline: none;
-  margin-bottom: var(--space-4);
   appearance: none;
+  cursor: pointer;
 }
 
 #ballCount::-webkit-slider-thumb {
   appearance: none;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: var(--radius-full);
-  background: var(--white);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
   cursor: pointer;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-xl);
   transition: all var(--duration-normal) var(--ease-out);
+  border: 3px solid var(--white);
 }
 
 #ballCount::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-  box-shadow: var(--shadow-lg);
+  transform: scale(1.2);
+  box-shadow: var(--shadow-2xl);
 }
 
 #ballCountDisplay {
-  display: inline-block;
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  background: var(--white);
-  color: var(--primary);
-  padding: var(--space-2) var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4rem;
+  font-size: var(--font-size-3xl);
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--white);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-neon);
+  text-align: center;
   border-radius: var(--radius-lg);
   min-width: 3rem;
   text-align: center;
@@ -476,7 +508,8 @@ body::before {
 
 /* Lists */
 .player-list {
-  max-height: 12rem;
+  max-height: 20rem;
+  min-height: 16rem;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
@@ -516,27 +549,71 @@ body::before {
 
 .player-balls {
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.2);
-  padding: var(--space-1) var(--space-3);
+  background: rgba(59, 130, 246, 0.9);
+  color: var(--white);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
+  border: 1px solid rgba(59, 130, 246, 1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  min-width: 4rem;
+  text-align: center;
 }
 
 /* Empty States */
 .empty-lobby {
   text-align: center;
-  padding: var(--space-12) var(--space-6);
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius-lg);
+  padding: var(--space-16) var(--space-8);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-2xl);
   backdrop-filter: blur(10px);
+  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.empty-lobby::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 70%
+  );
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
 }
 
 .empty-lobby p {
-  margin: var(--space-2) 0;
-  font-size: var(--font-size-lg);
-  font-weight: 500;
+  margin: var(--space-3) 0;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
   opacity: 0.9;
+  position: relative;
+  z-index: 1;
+}
+
+.empty-lobby p:first-child {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
 }
 
 /* Notifications */
@@ -692,10 +769,45 @@ body::before {
 /* Additional Components */
 .cost {
   text-align: center;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  margin: var(--space-6) 0;
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--phase-yellow);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.player-balls {
+  text-align: center;
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background: rgba(59, 130, 246, 0.15);
+  border: 2px solid rgba(59, 130, 246, 0.6);
+  border-radius: var(--radius-lg);
+  color: var(--white);
   font-weight: 600;
-  margin: var(--space-4) 0;
-  opacity: 0.9;
+  font-size: var(--font-size-lg);
+}
+
+.user-balls-display {
+  text-align: center;
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background: rgba(59, 130, 246, 0.15);
+  border: 2px solid rgba(59, 130, 246, 0.6);
+  border-radius: var(--radius-lg);
+  color: var(--white);
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+}
+
+.user-balls-display strong {
+  color: var(--primary-light);
+  font-size: var(--font-size-xl);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .game-header {

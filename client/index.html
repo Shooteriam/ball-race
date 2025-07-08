@@ -39,14 +39,16 @@
                     <h3>🎱 Покупка шариков</h3>
                     <div class="ball-selector">
                         <label for="ballCount">Количество шариков:</label>
-                        <input type="range" id="ballCount" min="1" max="50" value="10">
-                        <span id="ballCountDisplay">10</span>
+                        <div class="slider-container">
+                            <input type="range" id="ballCount" min="1" max="50" value="10">
+                            <span id="ballCountDisplay">10</span>
+                        </div>
                     </div>
-                    <p class="cost">💎 Стоимость: 50 ⭐ Telegram Stars</p>
+                    <p class="cost">Стоимость: 50 ⭐</p>
                     <button id="buyBallsBtn" class="btn btn-primary">
                         ✨ Купить шарики
                     </button>
-                    <div class="player-balls">
+                    <div class="user-balls-display">
                         <span>Ваши шарики: <strong id="playerBallCount">0</strong> 🎱</span>
                     </div>
                 </div>
