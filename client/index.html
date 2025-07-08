@@ -126,6 +126,103 @@
 
         <!-- Notifications -->
         <div id="notifications" class="notifications"></div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-button active" data-tab="game">
+                <span class="tab-icon">🎮</span>
+                <span class="tab-text">Игра</span>
+            </button>
+            <button class="tab-button" data-tab="profile">
+                <span class="tab-icon">👤</span>
+                <span class="tab-text">Профиль</span>
+            </button>
+        </div>
+
+        <!-- Profile Screen -->
+        <div id="profileScreen" class="screen">
+            <div class="card profile-card">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <span id="profileAvatar">👤</span>
+                    </div>
+                    <div class="profile-info">
+                        <h2 id="profileName">Игрок</h2>
+                        <p id="profileUsername">@username</p>
+                    </div>
+                </div>
+
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <span class="stat-icon">🎱</span>
+                        <span class="stat-label">Всего шариков</span>
+                        <span class="stat-value" id="totalBallsOwned">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-icon">🏆</span>
+                        <span class="stat-label">Игр выиграно</span>
+                        <span class="stat-value" id="gamesWon">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-icon">🎮</span>
+                        <span class="stat-label">Игр сыграно</span>
+                        <span class="stat-value" id="gamesPlayed">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-icon">⭐</span>
+                        <span class="stat-label">Рейтинг</span>
+                        <span class="stat-value" id="playerRating">1000</span>
+                    </div>
+                </div>
+
+                <div class="profile-achievements">
+                    <h3>🏅 Достижения</h3>
+                    <div class="achievements-grid">
+                        <div class="achievement-item locked">
+                            <span class="achievement-icon">🥇</span>
+                            <span class="achievement-name">Первая победа</span>
+                        </div>
+                        <div class="achievement-item locked">
+                            <span class="achievement-icon">🎯</span>
+                            <span class="achievement-name">Меткий стрелок</span>
+                        </div>
+                        <div class="achievement-item locked">
+                            <span class="achievement-icon">💰</span>
+                            <span class="achievement-name">Коллекционер</span>
+                        </div>
+                        <div class="achievement-item locked">
+                            <span class="achievement-icon">🔥</span>
+                            <span class="achievement-name">На волне</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-settings">
+                    <h3>⚙️ Настройки</h3>
+                    <div class="setting-item">
+                        <span class="setting-label">Звуковые эффекты</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="soundEffects" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Вибрация</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="vibration" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Уведомления</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="js/app.js"></script>

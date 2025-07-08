@@ -169,7 +169,8 @@ class BallRaceApp {
 
       this.socket.on("connect", () => {
         console.log("Connected to server");
-        // Не присоединяемся к лобби автоматически, только после покупки
+        // Присоединяемся к лобби сразу при подключении
+        this.joinLobby();
       });
 
       this.socket.on("disconnect", () => {
@@ -262,6 +263,11 @@ class BallRaceApp {
           playerBallCount.textContent = this.gameState.playerBalls;
         }
 
+        // Update profile data if on profile screen
+        if (this.gameState.currentScreen === "profile") {
+          this.updateProfileData();
+        }
+
         // Enable/disable start button
         const startBtn = document.getElementById("startGameBtn");
         if (startBtn) {
@@ -331,6 +337,14 @@ class BallRaceApp {
     // Start game button
     document.getElementById("startGameBtn").addEventListener("click", () => {
       this.requestStartGame();
+    });
+
+    // Tab navigation
+    document.querySelectorAll(".tab-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const tabName = button.dataset.tab;
+        this.switchTab(tabName);
+      });
     });
   }
 
@@ -463,12 +477,16 @@ class BallRaceApp {
       screen.classList.remove("active");
     });
 
-    // Show target screen - для main экрана не скрываем, он всегда активен
+    // Show target screen
     if (screenName === "main") {
       document.getElementById("mainScreen").classList.add("active");
+    } else if (screenName === "profile") {
+      document.getElementById("profileScreen").classList.add("active");
+      this.updateProfileData();
     } else {
       document.getElementById(screenName + "Screen").classList.add("active");
     }
+
     this.gameState.currentScreen = screenName;
   }
 
@@ -624,17 +642,6 @@ class BallRaceApp {
     if (playerBallCount) {
       playerBallCount.textContent = this.gameState.playerBalls;
     }
-
-    // Join lobby after first purchase
-    if (!this.hasJoinedLobby) {
-      this.joinLobby();
-      this.hasJoinedLobby = true;
-
-      // Показываем уведомление о присоединении к лобби
-      setTimeout(() => {
-        this.showNotification("🎮 Вы присоединились к лобби!", "success");
-      }, 1000);
-    }
   }
 
   onGameStarted(gameData) {
@@ -782,6 +789,47 @@ class BallRaceApp {
       startBtn.disabled = false;
       startBtn.textContent = "🚀 Начать игру";
     }, 3000);
+  }
+
+  switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll(".tab-button").forEach((btn) => {
+      btn.classList.remove("active");
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add("active");
+
+    // Update screens
+    if (tabName === "game") {
+      this.showScreen("main");
+    } else if (tabName === "profile") {
+      this.showScreen("profile");
+      this.updateProfileData();
+    }
+  }
+
+  updateProfileData() {
+    if (this.playerData) {
+      // Update profile info
+      const profileName = document.getElementById("profileName");
+      const profileUsername = document.getElementById("profileUsername");
+      const profileAvatar = document.getElementById("profileAvatar");
+
+      if (profileName)
+        profileName.textContent =
+          this.playerData.firstName || this.playerData.username;
+      if (profileUsername)
+        profileUsername.textContent = `@${this.playerData.username}`;
+      if (profileAvatar) {
+        // Use first letter of name as avatar
+        profileAvatar.textContent = (this.playerData.firstName ||
+          this.playerData.username)[0].toUpperCase();
+      }
+
+      // Update stats
+      const totalBallsOwned = document.getElementById("totalBallsOwned");
+      if (totalBallsOwned)
+        totalBallsOwned.textContent = this.gameState.playerBalls;
+    }
   }
 }
 

@@ -152,9 +152,8 @@ io.on("connection", (socket) => {
     }
 
     if (ballCount <= 0 || ballCount > GAME_SETTINGS.MAX_BALLS_PER_PLAYER) {
-      socket.emit({
-        success: false,
-        error: `Неверное количество шариков (макс: ${GAME_SETTINGS.MAX_BALLS_PER_PLAYER})`,
+      socket.emit("error", {
+        message: `Неверное количество шариков (макс: ${GAME_SETTINGS.MAX_BALLS_PER_PLAYER})`,
       });
       return;
     }
