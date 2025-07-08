@@ -354,7 +354,13 @@ class BallRaceApp {
 
     // Initialize game renderer
     if (!this.gameRenderer) {
-      this.gameRenderer = new GameRenderer("gameCanvas");
+      if (typeof GameRenderer !== "undefined") {
+        this.gameRenderer = new GameRenderer("gameCanvas");
+      } else {
+        console.error("GameRenderer not loaded!");
+        this.showNotification("Ошибка загрузки игрового движка", "error");
+        return;
+      }
     }
 
     this.gameRenderer.initGame(gameData);
@@ -647,19 +653,13 @@ class BallRaceApp {
   onGameStarted(gameData) {
     console.log("Game started:", gameData);
     this.gameState.currentGame = gameData;
-    this.showScreen("game");
+    this.startGame(gameData); // Use the main startGame method
     this.showNotification("Игра началась! 🏁", "success");
-
-    // Initialize game renderer
-    if (window.GameRenderer) {
-      window.gameRenderer = new GameRenderer("gameCanvas");
-      window.gameRenderer.initGame(gameData);
-    }
   }
 
   onGameUpdate(gameData) {
-    if (window.gameRenderer) {
-      window.gameRenderer.updateGame(gameData);
+    if (this.gameRenderer) {
+      this.gameRenderer.updateGame(gameData);
     }
 
     // Update game time

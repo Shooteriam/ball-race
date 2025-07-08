@@ -1,4 +1,6 @@
 // Game Renderer for Ball Race
+console.log("GameRenderer script loaded");
+
 class GameRenderer {
   constructor(canvasId) {
     this.canvas = document.getElementById(canvasId);
@@ -288,3 +290,4 @@ class GameRenderer {
 
 // Make GameRenderer available globally
 window.GameRenderer = GameRenderer;
+console.log("GameRenderer class exported to window");
