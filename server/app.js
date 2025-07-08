@@ -24,10 +24,31 @@ const gameState = {
   nextGameTime: null,
 };
 
+// ⏰ БЫСТРАЯ НАСТРОЙКА ТАЙМЕРА ИГРЫ
+// Раскомментируйте ОДНУ строку из вариантов ниже:
+
+const TIMER_PRESETS = {
+  // 🧪 ДЛЯ ТЕСТИРОВАНИЯ:
+  GAME_INTERVAL: 10 * 1000, // 30 секунд
+  // GAME_INTERVAL: 1 * 60 * 1000,   // 1 минута
+
+  // ⚡ БЫСТРЫЕ ИГРЫ:
+  // GAME_INTERVAL: 2 * 60 * 1000,   // 2 минуты
+  // GAME_INTERVAL: 3 * 60 * 1000,   // 3 минуты
+
+  // 🎯 СТАНДАРТНЫЕ ИНТЕРВАЛЫ:
+  //GAME_INTERVAL: 5 * 60 * 1000, // 5 минут ✅ ТЕКУЩАЯ НАСТРОЙКА
+  // GAME_INTERVAL: 10 * 60 * 1000,  // 10 минут
+
+  // 🏆 ТУРНИРНЫЕ РЕЖИМЫ:
+  // GAME_INTERVAL: 15 * 60 * 1000,  // 15 минут
+  // GAME_INTERVAL: 30 * 60 * 1000,  // 30 минут
+};
+
 // Game settings
 const GAME_SETTINGS = {
   MAX_PLAYERS: 20,
-  GAME_INTERVAL: 5 * 60 * 1000, // 5 minutes
+  ...TIMER_PRESETS, // Применяем выбранную настройку таймера
   BALL_PRICE: 50, // Telegram Stars
   MAX_BALLS_PER_PLAYER: 50,
   GAME_DURATION: 60 * 1000, // 60 seconds max
@@ -727,8 +748,18 @@ function endGame(game) {
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
+  const timerMinutes = Math.floor(GAME_SETTINGS.GAME_INTERVAL / (60 * 1000));
+  const timerSeconds = Math.floor(
+    (GAME_SETTINGS.GAME_INTERVAL % (60 * 1000)) / 1000
+  );
+
   console.log(`🚀 Ball Race server running on port ${PORT}`);
   console.log(`📱 Client available at http://localhost:${PORT}`);
+  console.log(`⏰ Game timer interval: ${timerMinutes}m ${timerSeconds}s`);
+  console.log(`🎯 Max players: ${GAME_SETTINGS.MAX_PLAYERS}`);
+  console.log(`💰 Ball price: ${GAME_SETTINGS.BALL_PRICE} stars`);
+  console.log(`🔄 Starting game timer...`);
+
   startGameTimer();
 });
 
