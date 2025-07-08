@@ -202,12 +202,20 @@ io.on("connection", (socket) => {
     socket.emit("next-game-time", gameState.nextGameTime);
   });
 
-  // Buy balls via socket
+  // Buy balls via socket (for development mode only)
   socket.on("buy-balls", (data) => {
     const { ballCount } = data;
 
     if (!socket.userId) {
       socket.emit("error", { message: "Не авторизован" });
+      return;
+    }
+
+    // Only allow in development mode or for admins
+    if (config.isProduction && !config.isAdmin(socket.userId)) {
+      socket.emit("error", { 
+        message: "Покупка через Telegram Stars недоступна в этом режиме" 
+      });
       return;
     }
 
@@ -226,19 +234,41 @@ io.on("connection", (socket) => {
         username: socket.username || "Player",
         balls: [],
         isAdmin: config.isAdmin(socket.userId),
+        totalBallsPurchased: 0,
+        totalStarsSpent: 0
       };
       gameState.lobby.set(socket.userId, playerData);
     }
 
-    // Add balls
+    // Check if player already has max balls
+    if (playerData.balls.length + ballCount > GAME_SETTINGS.MAX_BALLS_PER_PLAYER) {
+      socket.emit("error", {
+        message: `Превышено максимальное количество шариков (${GAME_SETTINGS.MAX_BALLS_PER_PLAYER})`
+      });
+      return;
+    }
+
+    // Add balls with improved positioning
+    const startX = 100;
+    const endX = WORLD_WIDTH - 100;
+    const spacing = (endX - startX) / Math.max(1, ballCount - 1);
+
     for (let i = 0; i < ballCount; i++) {
+      const x = ballCount === 1 ? WORLD_WIDTH / 2 : startX + (i * spacing);
       playerData.balls.push({
         id: `${socket.userId}_${Date.now()}_${i}`,
         color: getRandomBallColor(),
-        position: { x: Math.random() * 400 + 200, y: 50 },
-        velocity: { x: (Math.random() - 0.5) * 4, y: 0 },
+        position: { 
+          x: x + (Math.random() - 0.5) * 50,
+          y: 20 + Math.random() * 30 
+        },
+        velocity: { x: (Math.random() - 0.5) * 2, y: 0 },
       });
     }
+
+    // Update statistics
+    playerData.totalBallsPurchased += ballCount;
+    gameState.statistics.totalBallsSold += ballCount;
 
     console.log(
       `Player ${playerData.username} bought ${ballCount} balls (total: ${playerData.balls.length})`

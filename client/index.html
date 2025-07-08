@@ -39,12 +39,23 @@
                     <h3>🎱 Покупка шариков</h3>
                     <div class="ball-selector">
                         <label for="ballCount">Количество шариков:</label>
-                        <div class="slider-container">
-                            <input type="range" id="ballCount" min="1" max="50" value="10">
-                            <span id="ballCountDisplay">10</span>
+                        <div class="counter-container">
+                            <div class="counter-controls">
+                                <button class="counter-btn" id="decreaseBalls" data-change="-1">-1</button>
+                                <button class="counter-btn" id="decrease10Balls" data-change="-10">-10</button>
+                                <input type="number" id="ballCount" min="1" max="50" value="1">
+                                <button class="counter-btn" id="increase10Balls" data-change="10">+10</button>
+                                <button class="counter-btn" id="increaseBalls" data-change="1">+1</button>
+                            </div>
+                            <div class="quick-select">
+                                <button class="quick-btn" data-value="1">1</button>
+                                <button class="quick-btn" data-value="10">10</button>
+                                <button class="quick-btn" data-value="25">25</button>
+                                <button class="quick-btn" data-value="50">50</button>
+                            </div>
                         </div>
                     </div>
-                    <p class="cost">Стоимость: 50 ⭐</p>
+                    <p class="cost">Стоимость: <span id="totalCost">50</span> ⭐</p>
                     <button id="buyBallsBtn" class="btn btn-primary">
                         ✨ Купить шарики
                     </button>
@@ -87,7 +98,12 @@
             </div>
 
             <div class="game-canvas-container">
-                <canvas id="gameCanvas" width="400" height="600"></canvas>
+                <canvas id="gameCanvas" width="800" height="1200"></canvas>
+                <div class="camera-controls">
+                    <button id="followBallBtn" class="btn btn-small">📍 Следить за шарами</button>
+                    <button id="topViewBtn" class="btn btn-small">🔝 Вид сверху</button>
+                    <button id="finishViewBtn" class="btn btn-small">🏁 К финишу</button>
+                </div>
             </div>
 
             <div class="game-controls">
@@ -136,6 +152,10 @@
             <button class="tab-button" data-tab="profile">
                 <span class="tab-icon">👤</span>
                 <span class="tab-text">Профиль</span>
+            </button>
+            <button class="tab-button" data-tab="leaderboard">
+                <span class="tab-icon">🏆</span>
+                <span class="tab-text">Рейтинг</span>
             </button>
         </div>
 

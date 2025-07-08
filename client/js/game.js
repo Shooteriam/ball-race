@@ -10,12 +10,16 @@ class GameRenderer {
     this.balls = [];
     this.animationId = null;
     this.winner = null;
+    this.playerBalls = []; // Track player's own balls
 
-    // Camera settings
+    // Camera settings with improved controls
     this.camera = {
       x: 0,
       y: 0,
       scale: 1,
+      mode: 'follow', // 'follow', 'top', 'finish'
+      targetY: 0,
+      smoothing: 0.1
     };
 
     // Colors
@@ -35,15 +39,15 @@ class GameRenderer {
     const container = this.canvas.parentElement;
     const containerRect = container.getBoundingClientRect();
     
-    // Calculate optimal canvas size for mobile devices
-    const maxWidth = Math.min(containerRect.width - 20, 500);
+    // Calculate optimal canvas size for better visibility
+    const maxWidth = Math.min(containerRect.width - 20, 600);
     const aspectRatio = 1.5; // Height to width ratio
     
     this.canvas.width = maxWidth;
     this.canvas.height = maxWidth * aspectRatio;
     
     // Ensure canvas doesn't exceed viewport height
-    const maxHeight = window.innerHeight * 0.6; // 60% of viewport height
+    const maxHeight = window.innerHeight * 0.7; // 70% of viewport height
     if (this.canvas.height > maxHeight) {
       this.canvas.height = maxHeight;
       this.canvas.width = maxHeight / aspectRatio;
@@ -73,10 +77,16 @@ class GameRenderer {
     this.balls = gameData.balls || [];
     this.obstacles = gameData.obstacles || [];
     this.winner = gameData.winner || null;
+    
+    // Update player balls for camera tracking
+    if (window.app && window.app.playerData) {
+      this.playerBalls = this.balls.filter(ball => ball.playerId === window.app.playerData.id);
+    }
   }
 
   startRenderLoop() {
     const render = () => {
+      this.updateCamera();
       this.clearCanvas();
       this.drawBackground();
       this.drawObstacles();
@@ -125,9 +135,12 @@ class GameRenderer {
   drawObstacles() {
     this.obstacles.forEach((obstacle) => {
       const x = obstacle.x * this.camera.scale;
-      const y = obstacle.y * this.camera.scale;
+      const y = (obstacle.y + this.camera.y) * this.camera.scale;
       const width = obstacle.width * this.camera.scale;
       const height = obstacle.height * this.camera.scale;
+
+      // Skip if obstacle is outside visible area
+      if (y > this.canvas.height + height || y < -height) return;
 
       if (obstacle.type === "finish") {
         // Draw finish line with pattern
@@ -146,7 +159,7 @@ class GameRenderer {
         this.ctx.fillStyle = "#ffffff";
         this.ctx.font = `bold ${Math.max(12, 16 * this.camera.scale)}px Inter`;
         this.ctx.textAlign = "center";
-        this.ctx.fillText("🏁 FINISH", this.canvas.width / 2, y - 10);
+        this.ctx.fillText("🏁 FINISH", this.canvas.width / 2, Math.max(y - 10, 20));
       } else if (obstacle.type === "moving") {
         // Draw moving obstacle with glow
         this.ctx.shadowColor = this.colors.moving;
@@ -174,11 +187,14 @@ class GameRenderer {
 
     sortedBalls.forEach((ball) => {
       const x = (ball.position?.x || ball.x || 0) * this.camera.scale;
-      const y = (ball.position?.y || ball.y || 0) * this.camera.scale;
+      const y = ((ball.position?.y || ball.y || 0) + this.camera.y) * this.camera.scale;
       const radius = 12 * this.camera.scale;
 
       // Skip if ball is outside visible area
       if (y < -radius || y > this.canvas.height + radius) return;
+
+      // Highlight player's own balls
+      const isPlayerBall = window.app && ball.playerId === window.app.playerData.id;
 
       // Draw ball shadow
       this.ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
@@ -199,6 +215,17 @@ class GameRenderer {
       this.ctx.beginPath();
       this.ctx.arc(x, y, radius, 0, Math.PI * 2);
       this.ctx.fill();
+
+      // Highlight player's own balls
+      if (isPlayerBall) {
+        this.ctx.strokeStyle = "#ffffff";
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+      }
 
       // Add highlight
       this.ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
@@ -328,6 +355,44 @@ class GameRenderer {
 
   destroy() {
     this.stopRenderLoop();
+  }
+
+  setCameraMode(mode) {
+    this.camera.mode = mode;
+    
+    switch(mode) {
+      case 'top':
+        this.camera.targetY = 0;
+        break;
+      case 'finish':
+        this.camera.targetY = -(1200 - this.canvas.height / this.camera.scale); // Bottom of world
+        break;
+      case 'follow':
+        // Will be set dynamically in updateCamera
+        break;
+    }
+  }
+
+  updateCamera() {
+    if (this.camera.mode === 'follow' && this.playerBalls.length > 0) {
+      // Follow player's balls
+      let avgY = 0;
+      this.playerBalls.forEach(ball => {
+        avgY += ball.y;
+      });
+      avgY /= this.playerBalls.length;
+      
+      // Center camera on average position
+      this.camera.targetY = -(avgY - this.canvas.height / (2 * this.camera.scale));
+    }
+
+    // Smooth camera movement
+    this.camera.y += (this.camera.targetY - this.camera.y) * this.camera.smoothing;
+    
+    // Clamp camera to world bounds
+    const maxY = 0;
+    const minY = -(1200 - this.canvas.height / this.camera.scale);
+    this.camera.y = Math.max(minY, Math.min(maxY, this.camera.y));
   }
 }
 

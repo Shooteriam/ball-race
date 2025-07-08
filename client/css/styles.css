@@ -775,19 +775,22 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-2);
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
   background: transparent;
   border: none;
   border-radius: var(--radius-lg);
   color: rgba(255, 255, 255, 0.6);
   transition: all var(--duration-normal) var(--ease-out);
   cursor: pointer;
+  min-height: 64px;
+  font-size: var(--font-size-sm);
 }
 
 .tab-button:hover {
   color: rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
 }
 
 .tab-button.active {
@@ -797,7 +800,7 @@ body::before {
 }
 
 .tab-icon {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
 }
 
 .tab-text {
@@ -1070,13 +1073,16 @@ body::before {
   border-radius: var(--radius-2xl);
   margin-bottom: var(--space-6);
   min-height: 400px;
+  position: relative;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 #gameCanvas {
   max-width: 100%;
   height: auto;
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-2xl);
+  box-shadow: var(--shadow-xl);
   background: #0f172a;
   image-rendering: crisp-edges;
   image-rendering: -webkit-optimize-contrast;
@@ -1182,4 +1188,121 @@ body::before {
     width: 100%;
     max-width: 300px;
   }
+}
+
+/* Ball Purchase Controls */
+.counter-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.counter-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.counter-btn {
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  min-width: 50px;
+  box-shadow: var(--shadow-sm);
+}
+
+.counter-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.counter-btn:active {
+  transform: translateY(0);
+}
+
+#ballCount {
+  width: 80px;
+  padding: var(--space-3);
+  border: 2px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.quick-select {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.quick-btn {
+  background: var(--gradient-emerald);
+  color: white;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-4);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  min-width: 45px;
+  box-shadow: var(--shadow-sm);
+}
+
+.quick-btn:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.quick-btn.active {
+  background: var(--gradient-purple);
+  transform: scale(1.1);
+}
+
+/* Game Canvas Improvements */
+.game-canvas-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--gradient-cosmic);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-2xl);
+  margin: var(--space-4) 0;
+}
+
+#gameCanvas {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  background: #0f172a;
+  max-width: 100%;
+  height: auto;
+}
+
+.camera-controls {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-small {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-md);
+  min-height: 40px;
 }

@@ -19,6 +19,9 @@ class BallRaceApp {
 
   async init() {
     try {
+      // Make app globally accessible
+      window.app = this;
+      
       // Инициализация Telegram Web App
       if (window.Telegram?.WebApp) {
         window.Telegram.WebApp.ready();
@@ -280,13 +283,42 @@ class BallRaceApp {
   }
 
   setupEventListeners() {
-    // Ball count slider
-    const ballCountSlider = document.getElementById("ballCount");
-    const ballCountDisplay = document.getElementById("ballCountDisplay");
+    // Ball count controls
+    const ballCountInput = document.getElementById("ballCount");
+    const totalCostElement = document.getElementById("totalCost");
 
-    ballCountSlider.addEventListener("input", (e) => {
-      ballCountDisplay.textContent = e.target.value;
+    // Counter buttons
+    document.querySelectorAll('.counter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const change = parseInt(btn.dataset.change);
+        const currentValue = parseInt(ballCountInput.value);
+        const newValue = Math.max(1, Math.min(50, currentValue + change));
+        ballCountInput.value = newValue;
+        this.updateTotalCost();
+      });
     });
+
+    // Quick select buttons
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const value = parseInt(btn.dataset.value);
+        ballCountInput.value = value;
+        this.updateTotalCost();
+        
+        // Visual feedback
+        document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 300);
+      });
+    });
+
+    // Manual input
+    ballCountInput.addEventListener('input', () => {
+      this.updateTotalCost();
+    });
+
+    // Initial cost update
+    this.updateTotalCost();
 
     // Buy balls button
     document.getElementById("buyBallsBtn").addEventListener("click", () => {
@@ -301,6 +333,35 @@ class BallRaceApp {
     document.getElementById("newGameBtn").addEventListener("click", () => {
       this.showScreen("main");
     });
+
+    // Camera controls
+    const followBallBtn = document.getElementById("followBallBtn");
+    const topViewBtn = document.getElementById("topViewBtn");
+    const finishViewBtn = document.getElementById("finishViewBtn");
+
+    if (followBallBtn) {
+      followBallBtn.addEventListener("click", () => {
+        if (this.gameRenderer) {
+          this.gameRenderer.setCameraMode('follow');
+        }
+      });
+    }
+
+    if (topViewBtn) {
+      topViewBtn.addEventListener("click", () => {
+        if (this.gameRenderer) {
+          this.gameRenderer.setCameraMode('top');
+        }
+      });
+    }
+
+    if (finishViewBtn) {
+      finishViewBtn.addEventListener("click", () => {
+        if (this.gameRenderer) {
+          this.gameRenderer.setCameraMode('finish');
+        }
+      });
+    }
 
     // Share button (if exists)
     const shareBtn = document.getElementById("shareResultBtn");
@@ -570,8 +631,8 @@ class BallRaceApp {
       if (window.Telegram?.WebApp) {
         await this.processTelegramStarsPayment(ballCount);
       } else {
-        // Development mode - simulate payment
-        await this.simulatePayment(ballCount);
+        // Development mode - use socket for quick testing
+        await this.simulateSocketPayment(ballCount);
       }
     } catch (error) {
       console.error("Purchase failed:", error);
@@ -661,6 +722,34 @@ class BallRaceApp {
     } catch (error) {
       reject(error);
     }
+  }
+
+  async simulateSocketPayment(ballCount) {
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        reject(new Error("Нет соединения с сервером"));
+        return;
+      }
+
+      // Listen for response
+      const timeout = setTimeout(() => {
+        reject(new Error("Тайм-аут покупки"));
+      }, 5000);
+
+      this.socket.once("player-stats", (data) => {
+        clearTimeout(timeout);
+        this.showNotification(`Куплено ${ballCount} шариков! Всего: ${data.ballCount}`, "success");
+        resolve(data);
+      });
+
+      this.socket.once("error", (error) => {
+        clearTimeout(timeout);
+        reject(new Error(error.message || "Ошибка покупки"));
+      });
+
+      // Send purchase request
+      this.socket.emit("buy-balls", { ballCount });
+    });
   }
 
   updatePlayerBallDisplay() {
@@ -902,6 +991,15 @@ class BallRaceApp {
       const totalBallsOwned = document.getElementById("totalBallsOwned");
       if (totalBallsOwned)
         totalBallsOwned.textContent = this.gameState.playerBalls;
+    }
+  }
+
+  updateTotalCost() {
+    const ballCount = parseInt(document.getElementById("ballCount").value) || 1;
+    const totalCost = ballCount * 50; // 50 stars per ball from config
+    const totalCostElement = document.getElementById("totalCost");
+    if (totalCostElement) {
+      totalCostElement.textContent = totalCost;
     }
   }
 }
