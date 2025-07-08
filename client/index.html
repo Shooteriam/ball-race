@@ -4,8 +4,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Многопользовательская гонка шариков в Telegram">
     <title>Ball Race - Telegram Mini App</title>
+
+    <!-- Modern Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
     <link rel="stylesheet" href="css/styles.css">
+
+    <!-- Scripts -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 </head>
@@ -20,13 +33,13 @@
             </div>
 
             <!-- Таймер до следующей игры -->
-            <div class="timer-card">
+            <div class="card timer-card">
                 <h3>⏰ До следующей игры</h3>
                 <div id="gameTimer" class="timer">00:00</div>
             </div>
 
             <!-- Покупка шариков -->
-            <div class="purchase-section">
+            <div class="card purchase-section">
                 <div class="purchase-card">
                     <h3>🎱 Покупка шариков</h3>
                     <div class="ball-selector">
@@ -45,7 +58,7 @@
             </div>
 
             <!-- Лобби игроков -->
-            <div class="lobby-section">
+            <div class="card lobby-section">
                 <div class="lobby-card">
                     <h3>🏁 Лобби игроков (<span id="playerCount">0</span>/20)</h3>
                     <div id="playerList" class="player-list">
@@ -58,7 +71,7 @@
             </div>
 
             <!-- Правила игры -->
-            <div class="rules-section">
+            <div class="card rules-section">
                 <div class="info-card">
                     <h3>📋 Правила игры</h3>
                     <p>⏱️ Игры каждые 5 минут</p>
