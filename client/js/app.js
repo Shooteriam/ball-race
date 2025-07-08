@@ -252,6 +252,37 @@ class BallRaceApp {
           this.showError(`Админ ошибка: ${data.message}`);
         }
       });
+      this.socket.on("player-stats", (data) => {
+        console.log("Player stats received:", data);
+        this.gameState.playerBalls = data.ballCount;
+
+        // Update UI
+        const playerBallCount = document.getElementById("playerBallCount");
+        if (playerBallCount) {
+          playerBallCount.textContent = this.gameState.playerBalls;
+        }
+
+        // Enable/disable start button
+        const startBtn = document.getElementById("startGameBtn");
+        if (startBtn) {
+          startBtn.disabled = this.gameState.playerBalls === 0;
+          if (this.gameState.playerBalls > 0) {
+            startBtn.textContent = "🚀 Начать игру";
+          } else {
+            startBtn.textContent = "🚀 Сначала купите шарики";
+          }
+        }
+      });
+
+      this.socket.on("error", (data) => {
+        console.error("Server error:", data);
+        this.showNotification(data.message, "error");
+      });
+
+      this.socket.on("info", (data) => {
+        console.log("Server info:", data);
+        this.showNotification(data.message, "info");
+      });
     } catch (error) {
       console.error("Socket connection error:", error);
       this.showError("Ошибка подключения к серверу");
@@ -296,6 +327,11 @@ class BallRaceApp {
         this.showScreen("main");
       });
     }
+
+    // Start game button
+    document.getElementById("startGameBtn").addEventListener("click", () => {
+      this.requestStartGame();
+    });
   }
 
   // Game methods
@@ -507,23 +543,34 @@ class BallRaceApp {
     const ballCount = parseInt(document.getElementById("ballCount").value);
     const buyButton = document.getElementById("buyBallsBtn");
 
+    if (!this.socket || !this.socket.connected) {
+      this.showNotification("Нет соединения с сервером", "error");
+      return;
+    }
+
+    if (ballCount <= 0 || ballCount > 50) {
+      this.showNotification("Неверное количество шариков (1-50)", "error");
+      return;
+    }
+
     buyButton.classList.add("loading");
     buyButton.disabled = true;
+    buyButton.textContent = "💰 Покупка...";
 
     try {
-      if (window.Telegram?.WebApp) {
-        // Use Telegram Stars for payment
-        await this.processTelegramStarsPayment(ballCount);
-      } else {
-        // Simulate payment for development
-        await this.simulatePayment(ballCount);
-      }
+      // Send purchase request via socket
+      this.socket.emit("buy-balls", { ballCount });
+
+      this.showNotification(`Куплено ${ballCount} шариков! 🎱`, "success");
     } catch (error) {
-      console.error("Payment failed:", error);
-      this.showNotification("Ошибка оплаты", "error");
+      console.error("Purchase failed:", error);
+      this.showNotification("Ошибка покупки", "error");
     } finally {
-      buyButton.classList.remove("loading");
-      buyButton.disabled = false;
+      setTimeout(() => {
+        buyButton.classList.remove("loading");
+        buyButton.disabled = false;
+        buyButton.textContent = "💰 Купить шарики";
+      }, 1500);
     }
   }
 
@@ -667,14 +714,36 @@ class BallRaceApp {
   }
 
   showNotification(message, type = "info") {
+    // Create notification element
     const notification = document.createElement("div");
     notification.className = `notification ${type}`;
-    notification.textContent = message;
+    notification.innerHTML = `
+      <div class="notification-content">
+        <span class="notification-icon">
+          ${
+            type === "success"
+              ? "✅"
+              : type === "error"
+              ? "❌"
+              : type === "warning"
+              ? "⚠️"
+              : "ℹ️"
+          }
+        </span>
+        <span class="notification-message">${message}</span>
+      </div>
+    `;
 
+    // Add to document
     document.body.appendChild(notification);
 
+    // Show with animation
+    setTimeout(() => notification.classList.add("show"), 100);
+
+    // Auto remove after 3 seconds
     setTimeout(() => {
-      notification.remove();
+      notification.classList.remove("show");
+      setTimeout(() => notification.remove(), 300);
     }, 3000);
   }
 
@@ -690,6 +759,29 @@ class BallRaceApp {
         username: this.playerData.username,
       });
     }
+  }
+
+  requestStartGame() {
+    if (!this.socket || !this.socket.connected) {
+      this.showNotification("Нет соединения с сервером", "error");
+      return;
+    }
+
+    if (this.gameState.playerBalls === 0) {
+      this.showNotification("Сначала купите шарики!", "warning");
+      return;
+    }
+
+    const startBtn = document.getElementById("startGameBtn");
+    startBtn.disabled = true;
+    startBtn.textContent = "⏳ Запуск...";
+
+    this.socket.emit("start-game");
+
+    setTimeout(() => {
+      startBtn.disabled = false;
+      startBtn.textContent = "🚀 Начать игру";
+    }, 3000);
   }
 }
 

@@ -142,6 +142,59 @@ io.on("connection", (socket) => {
     socket.emit("next-game-time", gameState.nextGameTime);
   });
 
+  // Buy balls via socket
+  socket.on("buy-balls", (data) => {
+    const { ballCount } = data;
+
+    if (!socket.userId) {
+      socket.emit("error", { message: "Не авторизован" });
+      return;
+    }
+
+    if (ballCount <= 0 || ballCount > GAME_SETTINGS.MAX_BALLS_PER_PLAYER) {
+      socket.emit({
+        success: false,
+        error: `Неверное количество шариков (макс: ${GAME_SETTINGS.MAX_BALLS_PER_PLAYER})`,
+      });
+      return;
+    }
+
+    // Get or create player data
+    let playerData = gameState.lobby.get(socket.userId);
+    if (!playerData) {
+      playerData = {
+        userId: socket.userId,
+        username: socket.username || "Player",
+        balls: [],
+        isAdmin: isAdmin(socket.userId),
+      };
+      gameState.lobby.set(socket.userId, playerData);
+    }
+
+    // Add balls
+    for (let i = 0; i < ballCount; i++) {
+      playerData.balls.push({
+        id: `${socket.userId}_${Date.now()}_${i}`,
+        color: getRandomBallColor(),
+        position: { x: Math.random() * 400 + 200, y: 50 },
+        velocity: { x: (Math.random() - 0.5) * 4, y: 0 },
+      });
+    }
+
+    console.log(
+      `Player ${playerData.username} bought ${ballCount} balls (total: ${playerData.balls.length})`
+    );
+
+    // Send updated player stats
+    socket.emit("player-stats", {
+      ballCount: playerData.balls.length,
+      totalBalls: playerData.balls.length,
+    });
+
+    // Update lobby for all players
+    broadcastLobbyUpdate();
+  });
+
   // Admin: force start game
   socket.on("admin:forceStart", (data) => {
     const playerData = gameState.lobby.get(socket.userId);
@@ -195,6 +248,33 @@ io.on("connection", (socket) => {
     broadcastLobbyUpdate();
 
     console.log("Game reset by admin");
+  });
+
+  // Start game request
+  socket.on("start-game", () => {
+    const playerData = gameState.lobby.get(socket.userId);
+
+    if (!playerData) {
+      socket.emit("error", { message: "Игрок не найден в лобби" });
+      return;
+    }
+
+    if (playerData.balls.length === 0) {
+      socket.emit("error", { message: "У вас нет шариков для игры" });
+      return;
+    }
+
+    console.log(`Player ${playerData.username} requested game start`);
+
+    // For now, only admin can start the game manually
+    // Regular players will wait for the automatic timer
+    if (playerData.isAdmin) {
+      startGame();
+    } else {
+      socket.emit("info", {
+        message: "Ожидание других игроков или таймера...",
+      });
+    }
   });
 
   socket.on("disconnect", () => {
