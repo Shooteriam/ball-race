@@ -256,27 +256,11 @@ class BallRaceApp {
       this.socket.on("player-stats", (data) => {
         console.log("Player stats received:", data);
         this.gameState.playerBalls = data.ballCount;
-
-        // Update UI
-        const playerBallCount = document.getElementById("playerBallCount");
-        if (playerBallCount) {
-          playerBallCount.textContent = this.gameState.playerBalls;
-        }
+        this.updatePlayerBallDisplay();
 
         // Update profile data if on profile screen
         if (this.gameState.currentScreen === "profile") {
           this.updateProfileData();
-        }
-
-        // Enable/disable start button
-        const startBtn = document.getElementById("startGameBtn");
-        if (startBtn) {
-          startBtn.disabled = this.gameState.playerBalls === 0;
-          if (this.gameState.playerBalls > 0) {
-            startBtn.textContent = "🚀 Начать игру";
-          } else {
-            startBtn.textContent = "🚀 Сначала купите шарики";
-          }
         }
       });
 
@@ -582,34 +566,123 @@ class BallRaceApp {
     buyButton.textContent = "💰 Покупка...";
 
     try {
-      // Send purchase request via socket
-      this.socket.emit("buy-balls", { ballCount });
-
-      this.showNotification(`Куплено ${ballCount} шариков! 🎱`, "success");
+      // Check if we're in Telegram environment
+      if (window.Telegram?.WebApp) {
+        await this.processTelegramStarsPayment(ballCount);
+      } else {
+        // Development mode - simulate payment
+        await this.simulatePayment(ballCount);
+      }
     } catch (error) {
       console.error("Purchase failed:", error);
-      this.showNotification("Ошибка покупки", "error");
+      this.showNotification("Ошибка покупки: " + error.message, "error");
     } finally {
       setTimeout(() => {
         buyButton.classList.remove("loading");
         buyButton.disabled = false;
-        buyButton.textContent = "💰 Купить шарики";
+        buyButton.textContent = "✨ Купить шарики";
       }, 1500);
     }
   }
 
   async processTelegramStarsPayment(ballCount) {
     const tg = window.Telegram.WebApp;
+    const totalStars = ballCount * 50; // 50 stars per ball
 
-    // TODO: Implement actual Telegram Stars payment
-    // For now, simulate the payment process
     return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate payment success
-        this.completePurchase(ballCount);
-        resolve();
-      }, 2000);
+      // Create invoice for Telegram Stars
+      const invoice = {
+        title: `${ballCount} шариков для Ball Race`,
+        description: `Покупка ${ballCount} шариков для участия в гонке`,
+        currency: "XTR", // Telegram Stars currency
+        prices: [{ label: `${ballCount} шариков`, amount: totalStars }],
+        payload: JSON.stringify({
+          userId: this.playerData.id,
+          ballCount: ballCount,
+          timestamp: Date.now()
+        })
+      };
+
+      // Request payment
+      tg.showPopup({
+        title: "Покупка шариков",
+        message: `Купить ${ballCount} шариков за ${totalStars} ⭐?`,
+        buttons: [
+          { id: "cancel", type: "cancel", text: "Отмена" },
+          { id: "pay", type: "default", text: `Купить за ${totalStars} ⭐` }
+        ]
+      }, (buttonId) => {
+        if (buttonId === "pay") {
+          // In real implementation, you would use tg.requestPayment()
+          // For now, simulate successful payment
+          this.completeTelegramPayment(ballCount, resolve, reject);
+        } else {
+          reject(new Error("Платеж отменен"));
+        }
+      });
     });
+  }
+
+  async completeTelegramPayment(ballCount, resolve, reject) {
+    try {
+      // Send payment confirmation to server
+      const response = await fetch("/api/buy-balls", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: this.playerData.id,
+          username: this.playerData.username,
+          ballCount: ballCount,
+          paymentData: {
+            amount: ballCount * 50,
+            currency: "XTR",
+            verified: true // In real app, this would come from Telegram
+          },
+          initData: window.Telegram?.WebApp?.initData || null
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.gameState.playerBalls = result.ballCount;
+        this.updatePlayerBallDisplay();
+        this.showNotification(result.message || `Куплено ${ballCount} шариков! 🎱`, "success");
+        
+        // Notify via socket for real-time lobby update
+        this.socket.emit("buy-balls", { ballCount });
+        
+        resolve(result);
+      } else {
+        reject(new Error(result.error || "Ошибка покупки"));
+      }
+    } catch (error) {
+      reject(error);
+    }
+  }
+
+  updatePlayerBallDisplay() {
+    const playerBallElements = document.querySelectorAll("#playerBallCount");
+    playerBallElements.forEach(element => {
+      if (element) {
+        element.textContent = this.gameState.playerBalls;
+      }
+    });
+
+    // Update start button state
+    const startBtn = document.getElementById("startGameBtn");
+    if (startBtn) {
+      startBtn.disabled = this.gameState.playerBalls === 0;
+      if (this.gameState.playerBalls > 0) {
+        startBtn.textContent = "🚀 Начать игру";
+        startBtn.classList.remove("disabled");
+      } else {
+        startBtn.textContent = "🚀 Сначала купите шарики";
+        startBtn.classList.add("disabled");
+      }
+    }
   }
 
   async simulatePayment(ballCount) {

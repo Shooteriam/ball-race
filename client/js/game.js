@@ -33,12 +33,30 @@ class GameRenderer {
 
   resizeCanvas() {
     const container = this.canvas.parentElement;
-    const maxWidth = Math.min(container.clientWidth - 40, 500);
+    const containerRect = container.getBoundingClientRect();
+    
+    // Calculate optimal canvas size for mobile devices
+    const maxWidth = Math.min(containerRect.width - 20, 500);
+    const aspectRatio = 1.5; // Height to width ratio
+    
     this.canvas.width = maxWidth;
-    this.canvas.height = Math.floor(maxWidth * 1.5); // 3:2 aspect ratio
+    this.canvas.height = maxWidth * aspectRatio;
+    
+    // Ensure canvas doesn't exceed viewport height
+    const maxHeight = window.innerHeight * 0.6; // 60% of viewport height
+    if (this.canvas.height > maxHeight) {
+      this.canvas.height = maxHeight;
+      this.canvas.width = maxHeight / aspectRatio;
+    }
 
     // Update camera scale based on canvas size
     this.camera.scale = this.canvas.width / 800; // 800 is world width
+    
+    // Set CSS to center the canvas
+    this.canvas.style.display = 'block';
+    this.canvas.style.margin = '0 auto';
+    this.canvas.style.borderRadius = '12px';
+    this.canvas.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
   }
 
   initGame(gameData) {
@@ -159,60 +177,85 @@ class GameRenderer {
       const y = (ball.position?.y || ball.y || 0) * this.camera.scale;
       const radius = 12 * this.camera.scale;
 
+      // Skip if ball is outside visible area
+      if (y < -radius || y > this.canvas.height + radius) return;
+
       // Draw ball shadow
-      this.ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      this.ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
       this.ctx.beginPath();
-      this.ctx.ellipse(x + 2, y + 2, radius, radius * 0.5, 0, 0, Math.PI * 2);
+      this.ctx.ellipse(x + 3, y + 3, radius * 0.8, radius * 0.4, 0, 0, Math.PI * 2);
       this.ctx.fill();
 
-      // Draw ball
-      this.ctx.fillStyle = ball.color || this.colors.ball;
+      // Draw ball with gradient
+      const gradient = this.ctx.createRadialGradient(
+        x - radius * 0.3, y - radius * 0.3, 0,
+        x, y, radius
+      );
+      gradient.addColorStop(0, ball.color || this.colors.ball);
+      gradient.addColorStop(0.7, ball.color || this.colors.ball);
+      gradient.addColorStop(1, this.darkenColor(ball.color || this.colors.ball, 0.3));
+      
+      this.ctx.fillStyle = gradient;
       this.ctx.beginPath();
       this.ctx.arc(x, y, radius, 0, Math.PI * 2);
       this.ctx.fill();
 
       // Add highlight
-      this.ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      this.ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
       this.ctx.beginPath();
       this.ctx.arc(
-        x - radius * 0.3,
-        y - radius * 0.3,
-        radius * 0.3,
+        x - radius * 0.4,
+        y - radius * 0.4,
+        radius * 0.25,
         0,
         Math.PI * 2
       );
       this.ctx.fill();
 
-      // Player name (small text)
-      if (ball.playerName || ball.username) {
+      // Player name (optimized for mobile)
+      if ((ball.playerName || ball.username) && radius > 8) {
+        const fontSize = Math.max(8, 10 * this.camera.scale);
         this.ctx.fillStyle = "#ffffff";
-        this.ctx.font = `${Math.max(10, 12 * this.camera.scale)}px Inter`;
+        this.ctx.font = `bold ${fontSize}px Inter`;
         this.ctx.textAlign = "center";
         this.ctx.strokeStyle = "#000000";
         this.ctx.lineWidth = 2;
-        this.ctx.strokeText(
-          ball.playerName || ball.username,
-          x,
-          y - radius - 8
-        );
-        this.ctx.fillText(ball.playerName || ball.username, x, y - radius - 8);
+        
+        const name = (ball.playerName || ball.username).substring(0, 8); // Limit name length
+        this.ctx.strokeText(name, x, y - radius - 5);
+        this.ctx.fillText(name, x, y - radius - 5);
       }
 
-      // Draw winner indicator
+      // Draw winner indicator with animation
       if (this.winner && ball.id === this.winner.ballId) {
+        const time = Date.now() * 0.005;
+        const pulseScale = 1 + Math.sin(time) * 0.1;
+        
         this.ctx.strokeStyle = "#fbbf24";
-        this.ctx.lineWidth = 4;
+        this.ctx.lineWidth = 3 * this.camera.scale;
         this.ctx.beginPath();
-        this.ctx.arc(x, y, radius + 6, 0, Math.PI * 2);
+        this.ctx.arc(x, y, (radius + 8) * pulseScale, 0, Math.PI * 2);
         this.ctx.stroke();
 
-        // Winner crown
+        // Winner crown with glow
+        this.ctx.shadowColor = "#fbbf24";
+        this.ctx.shadowBlur = 10;
         this.ctx.fillStyle = "#fbbf24";
         this.ctx.font = `${Math.max(16, 20 * this.camera.scale)}px Inter`;
         this.ctx.textAlign = "center";
         this.ctx.fillText("👑", x, y - radius - 25);
+        this.ctx.shadowBlur = 0;
       }
     });
+  }
+
+  // Helper function to darken colors
+  darkenColor(color, amount) {
+    const hex = color.replace('#', '');
+    const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - amount * 255);
+    const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - amount * 255);
+    const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - amount * 255);
+    return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
   }
 
   drawUI() {

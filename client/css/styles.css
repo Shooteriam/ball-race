@@ -147,6 +147,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
+  /* Telegram Mini App specific */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Animated Background */
@@ -1030,5 +1035,151 @@ body::before {
 
   .tab-text {
     display: none;
+  }
+}
+
+/* Game Screen Styles */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--gradient-cosmic);
+  color: white;
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-4);
+}
+
+.game-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.player-stats {
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+}
+
+.game-canvas-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--gradient-primary);
+  border-radius: var(--radius-2xl);
+  margin-bottom: var(--space-6);
+  min-height: 400px;
+}
+
+#gameCanvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+  background: #0f172a;
+  image-rendering: crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.game-controls {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  margin-bottom: var(--space-8);
+}
+
+.game-controls .btn {
+  min-width: 140px;
+}
+
+/* Results Screen */
+.results-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.winner-card {
+  background: var(--gradient-sunset);
+  color: white;
+  padding: var(--space-8);
+  border-radius: var(--radius-2xl);
+  text-align: center;
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-glow);
+}
+
+.results-list {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.position {
+  font-weight: bold;
+  color: var(--primary);
+  min-width: 30px;
+}
+
+.player-name {
+  flex: 1;
+  margin-left: var(--space-3);
+}
+
+.result-status {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.results-actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+}
+
+/* Mobile optimizations for game */
+@media (max-width: 640px) {
+  .game-header {
+    flex-direction: column;
+    gap: var(--space-2);
+    text-align: center;
+  }
+  
+  .game-canvas-container {
+    padding: var(--space-2);
+    min-height: 300px;
+  }
+  
+  .game-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .game-controls .btn {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .results-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .results-actions .btn {
+    width: 100%;
+    max-width: 300px;
   }
 }

@@ -4,6 +4,7 @@ const socketIo = require("socket.io");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 require("dotenv").config();
 
 const app = express();
@@ -22,35 +23,19 @@ const gameState = {
   games: [], // история игр
   gameTimer: null,
   nextGameTime: null,
+  statistics: {
+    totalGames: 0,
+    totalPlayers: 0,
+    totalBallsSold: 0
+  }
 };
 
-// ⏰ БЫСТРАЯ НАСТРОЙКА ТАЙМЕРА ИГРЫ
-// Раскомментируйте ОДНУ строку из вариантов ниже:
-
-const TIMER_PRESETS = {
-  // 🧪 ДЛЯ ТЕСТИРОВАНИЯ:
-  GAME_INTERVAL: 10 * 1000, // 30 секунд
-  // GAME_INTERVAL: 1 * 60 * 1000,   // 1 минута
-
-  // ⚡ БЫСТРЫЕ ИГРЫ:
-  // GAME_INTERVAL: 2 * 60 * 1000,   // 2 минуты
-  // GAME_INTERVAL: 3 * 60 * 1000,   // 3 минуты
-
-  // 🎯 СТАНДАРТНЫЕ ИНТЕРВАЛЫ:
-  //GAME_INTERVAL: 5 * 60 * 1000, // 5 минут ✅ ТЕКУЩАЯ НАСТРОЙКА
-  // GAME_INTERVAL: 10 * 60 * 1000,  // 10 минут
-
-  // 🏆 ТУРНИРНЫЕ РЕЖИМЫ:
-  // GAME_INTERVAL: 15 * 60 * 1000,  // 15 минут
-  // GAME_INTERVAL: 30 * 60 * 1000,  // 30 минут
-};
-
-// Game settings
+// Game settings from environment variables
 const GAME_SETTINGS = {
-  MAX_PLAYERS: 20,
-  ...TIMER_PRESETS, // Применяем выбранную настройку таймера
-  BALL_PRICE: 50, // Telegram Stars
-  MAX_BALLS_PER_PLAYER: 50,
+  MAX_PLAYERS: parseInt(process.env.MAX_PLAYERS) || 20,
+  GAME_INTERVAL: parseInt(process.env.GAME_INTERVAL) || 120000, // 2 минуты по умолчанию
+  BALL_PRICE: parseInt(process.env.BALL_PRICE) || 50,
+  MAX_BALLS_PER_PLAYER: parseInt(process.env.MAX_BALLS_PER_PLAYER) || 50,
   GAME_DURATION: 60 * 1000, // 60 seconds max
   WORLD_WIDTH: 800,
   WORLD_HEIGHT: 1200,
@@ -59,7 +44,7 @@ const GAME_SETTINGS = {
 // Game mechanics and physics constants
 const WORLD_WIDTH = 800;
 const WORLD_HEIGHT = 1200;
-const GRAVITY = 0.3;
+const GRAVITY = 0.5; // Увеличена гравитация для более быстрого падения
 const BALL_RADIUS = 12;
 const FINISH_LINE_Y = WORLD_HEIGHT - 100;
 
@@ -88,49 +73,101 @@ app.get("/api/game-info", (req, res) => {
 
 // Telegram Stars payment endpoint
 app.post("/api/buy-balls", async (req, res) => {
-  const { userId, ballCount, paymentData } = req.body;
+  const { userId, ballCount, paymentData, initData } = req.body;
 
   try {
-    // TODO: Verify Telegram Stars payment
-    // const isPaymentValid = await verifyTelegramStarsPayment(paymentData);
+    // Validate Telegram WebApp data
+    if (process.env.NODE_ENV === 'production' && initData) {
+      const isValidData = validateTelegramWebAppData(initData, process.env.TELEGRAM_BOT_TOKEN);
+      if (!isValidData) {
+        return res.status(400).json({ success: false, error: "Invalid Telegram data" });
+      }
+    }
 
-    // For now, simulate successful payment
-    const isPaymentValid = true;
+    // Verify Telegram Stars payment
+    const paymentResult = await verifyTelegramStarsPayment(paymentData, userId);
+    
+    if (!paymentResult.success) {
+      return res.status(400).json({ success: false, error: paymentResult.error || "Payment verification failed" });
+    }
 
-    if (isPaymentValid && ballCount <= GAME_SETTINGS.MAX_BALLS_PER_PLAYER) {
-      // Add player to lobby or update their ball count
-      const playerData = gameState.lobby.get(userId) || {
+    // Validate ball count
+    if (ballCount <= 0 || ballCount > GAME_SETTINGS.MAX_BALLS_PER_PLAYER) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid ball count (max: ${GAME_SETTINGS.MAX_BALLS_PER_PLAYER})` 
+      });
+    }
+
+    // Calculate expected payment amount
+    const expectedAmount = ballCount * GAME_SETTINGS.BALL_PRICE;
+    if (paymentResult.amount < expectedAmount) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Insufficient payment amount" 
+      });
+    }
+
+    // Get or create player data
+    let playerData = gameState.lobby.get(userId);
+    if (!playerData) {
+      playerData = {
         userId,
         username: req.body.username || "Player",
         balls: [],
+        isAdmin: isAdmin(userId),
+        totalBallsPurchased: 0,
+        totalStarsSpent: 0
       };
-
-      // Add balls
-      for (let i = 0; i < ballCount; i++) {
-        playerData.balls.push({
-          id: `${userId}_${Date.now()}_${i}`,
-          color: getRandomBallColor(),
-          position: { x: Math.random() * 400 + 200, y: 50 },
-          velocity: { x: (Math.random() - 0.5) * 4, y: 0 },
-        });
-      }
-
       gameState.lobby.set(userId, playerData);
-
-      // Notify all clients about lobby update
-      broadcastLobbyUpdate();
-
-      res.json({ success: true, ballCount: playerData.balls.length });
-    } else {
-      res
-        .status(400)
-        .json({ success: false, error: "Invalid payment or too many balls" });
     }
+
+    // Check if player already has max balls
+    if (playerData.balls.length + ballCount > GAME_SETTINGS.MAX_BALLS_PER_PLAYER) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Would exceed maximum balls per player (${GAME_SETTINGS.MAX_BALLS_PER_PLAYER})` 
+      });
+    }
+
+    // Add balls with improved positioning
+    const startX = 100;
+    const endX = WORLD_WIDTH - 100;
+    const spacing = (endX - startX) / Math.max(1, ballCount - 1);
+
+    for (let i = 0; i < ballCount; i++) {
+      const x = ballCount === 1 ? WORLD_WIDTH / 2 : startX + (i * spacing);
+      playerData.balls.push({
+        id: `${userId}_${Date.now()}_${i}`,
+        color: getRandomBallColor(),
+        position: { 
+          x: x + (Math.random() - 0.5) * 50, // Добавляем небольшой разброс
+          y: 20 + Math.random() * 30 
+        },
+        velocity: { x: (Math.random() - 0.5) * 2, y: 0 },
+      });
+    }
+
+    // Update statistics
+    playerData.totalBallsPurchased += ballCount;
+    playerData.totalStarsSpent += expectedAmount;
+    gameState.statistics.totalBallsSold += ballCount;
+
+    // Notify all clients about lobby update
+    broadcastLobbyUpdate();
+
+    console.log(`Player ${playerData.username} purchased ${ballCount} balls for ${expectedAmount} stars`);
+
+    res.json({ 
+      success: true, 
+      ballCount: playerData.balls.length,
+      totalSpent: playerData.totalStarsSpent,
+      message: `Successfully purchased ${ballCount} balls!`
+    });
+
   } catch (error) {
     console.error("Payment error:", error);
-    res
-      .status(500)
-      .json({ success: false, error: "Payment processing failed" });
+    res.status(500).json({ success: false, error: "Payment processing failed" });
   }
 });
 
@@ -309,6 +346,11 @@ io.on("connection", (socket) => {
 // Helper functions
 function loadAdminIds() {
   try {
+    const adminIdsEnv = process.env.ADMIN_IDS;
+    if (adminIdsEnv) {
+      return adminIdsEnv.split(',').map(id => id.trim());
+    }
+    
     const adminConfigPath = path.join(__dirname, "../admin-config.txt");
     if (fs.existsSync(adminConfigPath)) {
       const content = fs.readFileSync(adminConfigPath, "utf8");
@@ -327,6 +369,54 @@ function loadAdminIds() {
 function isAdmin(userId) {
   const adminIds = loadAdminIds();
   return adminIds.includes(userId.toString());
+}
+
+// Telegram WebApp data validation
+function validateTelegramWebAppData(initData, botToken) {
+  try {
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
+    urlParams.delete('hash');
+    
+    // Sort parameters
+    const dataCheckArray = [];
+    for (const [key, value] of urlParams.entries()) {
+      dataCheckArray.push(`${key}=${value}`);
+    }
+    dataCheckArray.sort();
+    
+    const dataCheckString = dataCheckArray.join('\n');
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    
+    return calculatedHash === hash;
+  } catch (error) {
+    console.error('Telegram validation error:', error);
+    return false;
+  }
+}
+
+// Verify Telegram Stars payment
+async function verifyTelegramStarsPayment(paymentData, userId) {
+  try {
+    // TODO: Implement actual Telegram Stars verification
+    // For now, we'll simulate validation
+    if (process.env.NODE_ENV === 'development') {
+      return { success: true, amount: paymentData.amount || GAME_SETTINGS.BALL_PRICE };
+    }
+    
+    // Real implementation would check with Telegram API
+    // const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/verifyStarPayment`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ payment_id: paymentData.payment_id, user_id: userId })
+    // });
+    
+    return { success: true, amount: paymentData.amount || GAME_SETTINGS.BALL_PRICE };
+  } catch (error) {
+    console.error('Payment verification failed:', error);
+    return { success: false, error: 'Payment verification failed' };
+  }
 }
 
 function resetGame() {
@@ -451,43 +541,62 @@ function startGame() {
 function generateObstacles() {
   const obstacles = [];
 
-  // Add horizontal platforms with gaps
-  for (let level = 1; level <= 8; level++) {
-    const y = 150 + level * 120;
-    const numPlatforms = 2 + Math.floor(Math.random() * 2);
+  // Add horizontal platforms with strategically placed gaps
+  for (let level = 1; level <= 6; level++) {
+    const y = 120 + level * 150; // Увеличиваем расстояние между уровнями
+    const numPlatforms = Math.random() > 0.3 ? 2 : 3; // Чаще 2 платформы
+
+    // Create gaps that aren't too wide or too narrow
+    const totalWidth = WORLD_WIDTH - 100; // Leave margins
+    const gapSize = 120 + Math.random() * 80; // Gap size 120-200px
+    const platformWidth = (totalWidth - gapSize) / numPlatforms;
 
     for (let i = 0; i < numPlatforms; i++) {
-      const width = 80 + Math.random() * 100;
-      const spacing = WORLD_WIDTH / (numPlatforms + 1);
-      const x = i * spacing + (spacing - width) / 2 + Math.random() * 60 - 30;
-
+      const x = 50 + i * (platformWidth + gapSize / (numPlatforms - 1));
+      
       obstacles.push({
         id: `platform_${level}_${i}`,
         type: "platform",
-        x: Math.max(0, Math.min(WORLD_WIDTH - width, x)),
+        x: x,
         y: y,
-        width: width,
+        width: platformWidth,
         height: 20,
         color: "#4f46e5",
       });
     }
   }
 
-  // Add some moving obstacles
-  for (let i = 0; i < 3; i++) {
+  // Add fewer but more strategic moving obstacles
+  for (let i = 0; i < 2; i++) {
+    const y = 250 + i * 300;
     obstacles.push({
       id: `moving_${i}`,
       type: "moving",
-      x: 100 + i * 200,
-      y: 300 + i * 200,
-      width: 60,
+      x: 100 + i * 300,
+      y: y,
+      width: 80,
       height: 20,
       color: "#dc2626",
       velocity: {
-        x: (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random()),
+        x: (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 0.7), // Slower movement
         y: 0,
       },
-      range: { min: 50, max: WORLD_WIDTH - 110 },
+      range: { min: 50, max: WORLD_WIDTH - 130 },
+    });
+  }
+
+  // Add some static obstacles for variety
+  for (let i = 0; i < 3; i++) {
+    const y = 200 + i * 200;
+    const x = 200 + Math.random() * 400;
+    obstacles.push({
+      id: `static_${i}`,
+      type: "platform",
+      x: x,
+      y: y,
+      width: 60 + Math.random() * 40,
+      height: 15,
+      color: "#7c3aed",
     });
   }
 
@@ -498,7 +607,7 @@ function generateObstacles() {
     x: 0,
     y: FINISH_LINE_Y,
     width: WORLD_WIDTH,
-    height: 10,
+    height: 15,
     color: "#10b981",
   });
 
@@ -511,17 +620,21 @@ function simulatePhysics(balls, obstacles, deltaTime) {
     // Apply gravity
     ball.velocity.y += GRAVITY * deltaTime;
 
+    // Add slight air resistance
+    ball.velocity.x *= 0.999;
+    ball.velocity.y *= 0.9995;
+
     // Update position
     ball.position.x += ball.velocity.x * deltaTime;
     ball.position.y += ball.velocity.y * deltaTime;
 
-    // Check wall collisions
+    // Check wall collisions with improved bouncing
     if (ball.position.x <= BALL_RADIUS) {
       ball.position.x = BALL_RADIUS;
-      ball.velocity.x = Math.abs(ball.velocity.x) * 0.7;
+      ball.velocity.x = Math.abs(ball.velocity.x) * 0.6; // Reduced bounce
     } else if (ball.position.x >= WORLD_WIDTH - BALL_RADIUS) {
       ball.position.x = WORLD_WIDTH - BALL_RADIUS;
-      ball.velocity.x = -Math.abs(ball.velocity.x) * 0.7;
+      ball.velocity.x = -Math.abs(ball.velocity.x) * 0.6; // Reduced bounce
     }
 
     // Check obstacle collisions
@@ -531,6 +644,7 @@ function simulatePhysics(balls, obstacles, deltaTime) {
         if (ball.position.y + BALL_RADIUS >= obstacle.y && !ball.finished) {
           ball.finished = true;
           ball.finishTime = Date.now();
+          console.log(`Ball ${ball.id} finished! Player: ${ball.playerName}`);
         }
       } else {
         checkBallObstacleCollision(ball, obstacle);
@@ -538,9 +652,13 @@ function simulatePhysics(balls, obstacles, deltaTime) {
     });
 
     // Prevent balls from going too far down
-    if (ball.position.y > WORLD_HEIGHT + 100) {
-      ball.position.y = WORLD_HEIGHT + 100;
+    if (ball.position.y > WORLD_HEIGHT + 200) {
+      ball.position.y = WORLD_HEIGHT + 200;
       ball.velocity.y = 0;
+      if (!ball.finished) {
+        ball.finished = true;
+        ball.finishTime = Date.now() + 60000; // Penalty time for falling off
+      }
     }
   });
 }
